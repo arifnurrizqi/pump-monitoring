@@ -2,7 +2,7 @@
     <div class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
             <h1 class="text-2xl font-bold leading-tight text-gray-900">MQTT Broker</h1>
-            <p class="mt-1 text-sm text-gray-500">Konfigurasi broker global untuk seluruh command perangkat.</p>
+            <p class="mt-1 text-sm text-gray-500">Konfigurasi broker eksternal untuk penerimaan telemetry seluruh gateway.</p>
         </div>
         <a href="{{ route('profile.edit') }}" class="inline-flex items-center justify-center rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-50">
             Account Settings
@@ -46,21 +46,13 @@
 
                     <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
                         <div>
-                            <x-input-label for="mode" value="Broker Type" />
-                            <select id="mode" name="mode" class="mt-1 block w-full rounded-xl border-gray-300 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500">
-                                <option value="internal" @selected($value('mode') === 'internal')>Internal / Docker</option>
-                                <option value="external" @selected($value('mode') === 'external')>External / Separate Server</option>
-                            </select>
-                            <x-input-error :messages="$errors->get('mode')" class="mt-2" />
-                        </div>
-                        <div>
                             <x-input-label for="client_id_prefix" value="Client ID Prefix" />
                             <x-text-input id="client_id_prefix" name="client_id_prefix" type="text" class="mt-1 block w-full" :value="$value('client_id_prefix')" required />
                             <x-input-error :messages="$errors->get('client_id_prefix')" class="mt-2" />
                         </div>
                         <div>
                             <x-input-label for="host" value="Broker Host" />
-                            <x-text-input id="host" name="host" type="text" class="mt-1 block w-full" :value="$value('host')" placeholder="mqtt atau broker.example.com" required />
+                            <x-text-input id="host" name="host" type="text" class="mt-1 block w-full" :value="$value('host')" placeholder="broker.example.com" required />
                             <x-input-error :messages="$errors->get('host')" class="mt-2" />
                         </div>
                         <div>

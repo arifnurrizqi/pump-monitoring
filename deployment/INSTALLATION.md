@@ -14,7 +14,7 @@ Dokumen ini ditujukan untuk tim IT client. Instalasi menggunakan bundle Docker o
 | Sistem operasi | Linux 64-bit dengan Docker Engine dan Docker Compose v2 |
 | Waktu | NTP aktif, timezone server disarankan `Asia/Jakarta` |
 
-Spesifikasi minimum cocok untuk instalasi kecil/demo. Proses PHP-FPM, subscriber telemetry, scheduler, Reverb, PostgreSQL, MQTT, dan Nginx berjalan bersamaan sehingga swap wajib disediakan bila RAM hanya 2 GB.
+Spesifikasi minimum cocok untuk instalasi kecil/demo. Proses PHP-FPM, subscriber telemetry, scheduler, Reverb, PostgreSQL, Redis, dan Nginx berjalan bersamaan sehingga swap wajib disediakan bila RAM hanya 2 GB. Broker MQTT berjalan di luar server aplikasi.
 
 ### Rekomendasi production
 
@@ -33,8 +33,7 @@ Kapasitas penyimpanan harus disesuaikan lagi dengan jumlah device, interval peng
 | Port | Penggunaan | Paparan yang disarankan |
 | ---: | --- | --- |
 | `8080/tcp` | Dashboard HTTP internal | Localhost/reverse proxy atau LAN |
-| `1883/tcp` | MQTT device tanpa TLS | LAN/VPN saja, jangan internet publik |
-| `9001/tcp` | MQTT WebSocket internal | Localhost saja; akses publik melalui `/mqtt` di HTTPS dashboard |
+| Port broker MQTT (umumnya `8883/tcp`) outbound | Subscriber ke broker eksternal | Izinkan ke hostname dan port broker yang dipilih |
 | `80/443` | Reverse proxy HTTPS atau Cloudflare | Internet jika diperlukan |
 | `7844/tcp+udp` outbound | Cloudflare Tunnel | Hanya jika memakai tunnel |
 
@@ -47,7 +46,7 @@ Sebelum instalasi, tentukan:
 - ID client dan ID instalasi.
 - Domain dashboard atau alamat IP/LAN.
 - Arsitektur server: AMD64 atau ARM64.
-- Apakah device MQTT berada di LAN, VPN, atau menggunakan WSS.
+- Host, port, kredensial, dan sertifikat broker MQTT eksternal yang dapat dijangkau server serta gateway.
 - Metode akses dashboard: LAN langsung, reverse proxy HTTPS, atau Cloudflare Tunnel.
 - Lokasi backup di luar server.
 - Surat Pernyataan Amanah dan identitas penggunaan yang telah diisi/disepakati.
@@ -136,7 +135,6 @@ DB_PASSWORD=HASIL_PASSWORD_DATABASE
 POSTGRES_PASSWORD=HASIL_PASSWORD_DATABASE
 
 MQTT_PASSWORD=HASIL_PASSWORD_MQTT
-MQTT_BROKER_PASSWORD=HASIL_PASSWORD_MQTT
 
 REVERB_APP_KEY=HASIL_KEY_REVERB
 REVERB_APP_SECRET=HASIL_SECRET_REVERB
@@ -193,9 +191,9 @@ REVERB_PUBLIC_SCHEME=https
 CLOUDFLARE_TUNNEL_TOKEN=
 ```
 
-Reverse proxy harus mempertahankan header `Host`, `X-Forwarded-Proto`, serta WebSocket Upgrade. Semua path diteruskan ke port `8080`; Nginx Hydroflow akan mengarahkan `/app/*` ke Reverb dan `/mqtt` ke MQTT WebSocket.
+Reverse proxy harus mempertahankan header `Host`, `X-Forwarded-Proto`, serta WebSocket Upgrade. Semua path dashboard diteruskan ke port `8080`; Nginx Hydroflow mengarahkan `/app/*` ke Reverb. Gateway menghubungi broker MQTT eksternal secara langsung.
 
-Jangan mempublikasikan port `8080`, `9001`, atau database ke internet ketika reverse proxy digunakan.
+Jangan mempublikasikan port `8080` atau database ke internet ketika reverse proxy digunakan.
 
 ### C. Cloudflare Tunnel
 
@@ -224,32 +222,21 @@ URL : http://nginx:80
 
 Karena `cloudflared` berada dalam network Docker yang sama, origin-nya adalah `nginx:80`, bukan `localhost:8080`.
 
-## 6. Tentukan akses MQTT device
+## 6. Hubungkan broker MQTT eksternal
 
-Jika device berada di LAN server:
+Siapkan broker di layanan atau server terpisah. Isi `.env.docker` dengan endpoint MQTT/TLS yang dapat dijangkau dari container subscriber:
 
 ```env
-MQTT_BIND_IP=0.0.0.0
-MQTT_EXTERNAL_PORT=1883
-MQTT_WEBSOCKET_PORT=9001
+MQTT_HOST=broker.example.com
+MQTT_PORT=8883
+MQTT_USERNAME=nama_pengguna_broker
+MQTT_PASSWORD=HASIL_PASSWORD_MQTT
+MQTT_TLS_ENABLED=true
 ```
 
-Device menggunakan:
+Gateway memakai broker, kredensial, dan topic `devices/{device_sn}/telemetry` yang sama. Jika gateway memakai MQTT over WebSocket, gunakan endpoint WSS milik broker eksternal; path `/mqtt` pada domain dashboard tidak lagi tersedia. Pastikan firewall server mengizinkan koneksi keluar ke host dan port broker. Bila broker memakai CA private, atur `MQTT_TLS_CA_FILE` seperti dijelaskan pada bagian pengaturan MQTT.
 
-```text
-Host     : IP LAN server
-Port     : 1883
-Username : MQTT_BROKER_USERNAME
-Password : MQTT_BROKER_PASSWORD
-```
-
-Port MQTT `1883` pada konfigurasi ini tidak memakai TLS. Batasi dengan firewall ke subnet device atau VPN. Untuk akses internet gunakan MQTT-over-WSS:
-
-```text
-wss://hydroflow.example.com/mqtt
-port 443
-subprotocol mqtt
-```
+Jika memperbarui instalasi lama yang memakai broker Docker bawaan, pindahkan gateway ke broker eksternal terlebih dahulu. Ubah `MQTT_HOST`, port, kredensial, dan TLS dalam `.env.docker`, lalu pastikan pengaturan web yang aktif juga menunjuk broker eksternal atau matikan **Use web configuration**. Setelah itu jalankan `./scripts/update.sh`; Compose menghentikan container broker lama melalui `--remove-orphans`. Volume data broker lama tidak dihapus otomatis.
 
 ## 7. Load image offline
 
@@ -294,7 +281,7 @@ Permission yang diharapkan:
 ./scripts/install.sh
 ```
 
-Installer akan memeriksa konfigurasi dan image, menyalakan PostgreSQL/MQTT, menjalankan migration, kemudian menyalakan seluruh service. Mode offline tidak melakukan `docker pull`.
+Installer akan memeriksa konfigurasi dan image, menyalakan PostgreSQL/Redis, menjalankan migration, kemudian menyalakan seluruh service. Mode offline tidak melakukan `docker pull`.
 
 Periksa status:
 
@@ -309,7 +296,6 @@ app        Up
 telemetry-subscriber Up
 scheduler  Up
 postgres   Up (healthy)
-mqtt       Up (healthy)
 reverb     Up (healthy)
 nginx      Up (healthy)
 cloudflared Up        # hanya jika token tunnel diisi
@@ -321,10 +307,10 @@ cloudflared Up        # hanya jika token tunnel diisi
 
 User pertama yang didaftarkan pada instalasi baru otomatis menjadi administrator sistem. Lakukan registrasi akun pemilik sebelum dashboard dapat dijangkau publik. Pada database hasil upgrade, migration mempromosikan user dengan ID paling awal.
 
-Administrator akan melihat menu **MQTT Broker** pada sidebar. Buka menu tersebut untuk memilih sumber broker:
+Administrator akan melihat menu **MQTT Broker** pada sidebar. Buka menu tersebut untuk memilih sumber konfigurasi broker eksternal:
 
-- Biarkan **Use web configuration** mati bila Laravel memakai broker Docker dari `.env` (`mqtt:1883`).
-- Aktifkan untuk memakai broker external/server terpisah, lalu isi hostname yang dapat dijangkau dari dalam container, port, username, password, dan TLS.
+- Biarkan **Use web configuration** mati bila Laravel memakai endpoint broker eksternal dari `.env.docker`.
+- Aktifkan untuk mengelola hostname, port, username, password, dan TLS broker eksternal lewat dashboard.
 - Klik **Test Connection** sebelum **Save Configuration**. Test tidak menyimpan perubahan.
 - Setelah disimpan, jalankan `docker compose --env-file .env.docker restart telemetry-subscriber` agar koneksi penerima memakai broker baru.
 
@@ -371,7 +357,6 @@ docker compose --env-file .env.docker logs --tail=100 app
 docker compose --env-file .env.docker logs --tail=100 nginx
 docker compose --env-file .env.docker logs --tail=100 telemetry-subscriber
 docker compose --env-file .env.docker logs --tail=100 reverb
-docker compose --env-file .env.docker logs --tail=100 mqtt
 docker compose --env-file .env.docker logs --tail=100 cloudflared
 ```
 
@@ -382,7 +367,7 @@ Masalah umum:
 | Nginx `502` | Pastikan `app` dan `reverb` berstatus Up/healthy. |
 | Image tidak ditemukan | Jalankan `load-images.sh` dan pastikan versi `.env.docker` cocok. |
 | `no matching manifest` | Bundle tidak sesuai arsitektur server. |
-| MQTT gagal start | Periksa konflik port `1883` dengan `ss -ltnp`. |
+| Telemetry tidak masuk | Periksa koneksi keluar ke broker eksternal, kredensial, TLS, topic, dan log `telemetry-subscriber`. |
 | Domain `502` | Periksa target reverse proxy/tunnel dan origin lokal `/up`. |
 | Realtime offline | Periksa `REVERB_PUBLIC_*`, allowed origins, Nginx, subscriber, dan Reverb. |
 | Cookie/login berulang | Pastikan `SESSION_SECURE_COOKIE` sesuai HTTP atau HTTPS. |
@@ -439,7 +424,7 @@ Rollback kode tanpa rollback database belum tentu aman setelah migration. Gunaka
    ./scripts/restore.sh backups/hydroflow-TIMESTAMP.dump
    ```
 
-4. Periksa container, `/up`, login, telemetry, MQTT, dan realtime.
+4. Periksa container, `/up`, login, telemetry dari broker eksternal, dan realtime.
 
 ## 15. Checklist serah-terima
 
@@ -448,7 +433,7 @@ Rollback kode tanpa rollback database belum tentu aman setelah migration. Gunaka
 - [ ] Disk, RAM, swap, NTP, dan timezone diperiksa.
 - [ ] `.env.docker` permission `600` dan seluruh placeholder sudah diganti.
 - [ ] Domain/IP dan metode akses dipilih dengan benar.
-- [ ] Firewall membatasi dashboard dan MQTT sesuai kebutuhan.
+- [ ] Firewall membatasi dashboard dan mengizinkan koneksi keluar ke broker MQTT eksternal.
 - [ ] Seluruh container berada pada kondisi yang diharapkan.
 - [ ] Health endpoint menghasilkan `200`.
 - [ ] Login, telemetry MQTT, realtime, histori, dan alarm parameter diuji.

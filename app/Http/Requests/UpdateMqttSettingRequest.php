@@ -18,7 +18,6 @@ class UpdateMqttSettingRequest extends FormRequest
         return [
             'intent' => ['required', Rule::in(['save', 'test'])],
             'is_active' => ['nullable', 'boolean'],
-            'mode' => ['required', Rule::in(['internal', 'external'])],
             'host' => ['required', 'string', 'max:255', 'not_regex:/\s/'],
             'port' => ['required', 'integer', 'between:1,65535'],
             'client_id_prefix' => ['required', 'string', 'max:100', 'regex:/^[A-Za-z0-9._-]+$/'],

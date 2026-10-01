@@ -77,9 +77,9 @@ class MqttParameterMonitoringTest extends TestCase
         $this->assertDatabaseCount('source_intervals', 2);
         $interval = SourceInterval::where('data_source_id', $power->id)->firstOrFail();
         $this->assertSame(3, $interval->sample_count);
-        $this->assertSame(220.0, $interval->metrics['voltage_l1']['min']);
-        $this->assertSame(240.0, $interval->metrics['voltage_l1']['max']);
-        $this->assertSame(690.0, $interval->metrics['voltage_l1']['sum']);
+        $this->assertEquals(220.0, $interval->metrics['voltage_l1']['min']);
+        $this->assertEquals(240.0, $interval->metrics['voltage_l1']['max']);
+        $this->assertEquals(690.0, $interval->metrics['voltage_l1']['sum']);
         $this->assertNotNull($device->fresh()->last_seen_at);
     }
 

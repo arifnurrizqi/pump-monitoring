@@ -11,7 +11,7 @@ return new class extends Migration
         Schema::create('mqtt_settings', function (Blueprint $table) {
             $table->id();
             $table->boolean('is_active')->default(false);
-            $table->string('mode', 20)->default('internal');
+            $table->string('mode', 20)->default('external');
             $table->string('host');
             $table->unsignedSmallInteger('port')->default(1883);
             $table->string('client_id_prefix')->default('hydroflow-dashboard');

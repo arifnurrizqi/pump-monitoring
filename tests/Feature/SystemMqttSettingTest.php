@@ -36,6 +36,7 @@ class SystemMqttSettingTest extends TestCase
             ->get(route('settings.mqtt.edit'))
             ->assertOk()
             ->assertSee('MQTT Broker')
+            ->assertDontSee('Internal / Docker')
             ->assertSee('Test Connection');
 
         $this->actingAs($admin)
@@ -43,6 +44,7 @@ class SystemMqttSettingTest extends TestCase
                 'host' => 'broker.client.test',
                 'port' => 8883,
                 'password' => 'mqtt-secret-password',
+                'mode' => 'internal',
                 'tls_enabled' => '1',
             ]))
             ->assertRedirect(route('settings.mqtt.edit'));
@@ -50,6 +52,7 @@ class SystemMqttSettingTest extends TestCase
         $setting = MqttSetting::query()->firstOrFail();
         $this->assertTrue($setting->is_active);
         $this->assertSame('broker.client.test', $setting->host);
+        $this->assertSame('external', $setting->mode);
         $this->assertSame(8883, $setting->port);
         $this->assertSame('mqtt-secret-password', $setting->password);
         $this->assertSame($admin->id, $setting->updated_by);

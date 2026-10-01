@@ -49,7 +49,6 @@ cd "$PROJECT_DIR"
 echo "Building Hydroflow $VERSION for $PLATFORM..."
 docker buildx build --pull --platform "$PLATFORM" --load --target app -t "arnur/hydroflow-app:$VERSION" .
 docker buildx build --platform "$PLATFORM" --load --target nginx -t "arnur/hydroflow-nginx:$VERSION" .
-docker buildx build --pull --platform "$PLATFORM" --load -f docker/mosquitto/Dockerfile -t "arnur/hydroflow-mqtt:$VERSION" .
 
 echo "Preparing third-party images for a fully offline installation..."
 docker pull --platform "$PLATFORM" postgres:17-alpine
@@ -60,7 +59,6 @@ echo "Exporting Docker image bundle..."
 docker save -o "$RAW_IMAGE_BUNDLE" \
     "arnur/hydroflow-app:$VERSION" \
     "arnur/hydroflow-nginx:$VERSION" \
-    "arnur/hydroflow-mqtt:$VERSION" \
     postgres:17-alpine \
     redis:7-alpine \
     cloudflare/cloudflared:latest

@@ -1,8 +1,8 @@
 <?php
 
 return [
-    'host' => env('MQTT_HOST', '127.0.0.1'),
-    'port' => (int) env('MQTT_PORT', 1883),
+    'host' => env('MQTT_HOST', ''),
+    'port' => (int) env('MQTT_PORT', 8883),
     'client_id_prefix' => env('MQTT_CLIENT_ID_PREFIX', 'pump-monitoring'),
     'username' => env('MQTT_USERNAME'),
     'password' => env('MQTT_PASSWORD'),
@@ -17,7 +17,7 @@ return [
     'live_cache_store' => env('MQTT_LIVE_CACHE_STORE', 'redis'),
 
     'tls' => [
-        'enabled' => (bool) env('MQTT_TLS_ENABLED', false),
+        'enabled' => (bool) env('MQTT_TLS_ENABLED', true),
         'verify_peer' => (bool) env('MQTT_TLS_VERIFY_PEER', true),
         'verify_peer_name' => (bool) env('MQTT_TLS_VERIFY_PEER_NAME', true),
         'allow_self_signed' => (bool) env('MQTT_TLS_ALLOW_SELF_SIGNED', false),

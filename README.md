@@ -27,7 +27,7 @@ Contoh payload gateway:
 
 ## Menjalankan secara lokal
 
-Kebutuhan: PHP 8.3+, ekstensi `pdo_pgsql`, Composer, Node.js, PostgreSQL, dan broker MQTT. Reverb dijalankan sebagai proses Laravel; Redis diperlukan hanya bila memilih cache Redis.
+Kebutuhan: PHP 8.3+, ekstensi `pdo_pgsql`, Composer, Node.js, PostgreSQL, dan broker MQTT eksternal. Reverb dijalankan sebagai proses Laravel; Redis diperlukan hanya bila memilih cache Redis.
 
 1. Buat database PostgreSQL `pump_monitoring` dan salin `.env.example` ke `.env`.
 2. Isi `DB_*`, `MQTT_*`, `REDIS_*`, dan `REVERB_*` sesuai lingkungan lokal.
@@ -52,7 +52,7 @@ Gunakan [`docker-compose.database.yml`](docker-compose.database.yml) jika hanya 
 
 Compose khusus database memakai volume sendiri, terpisah dari `postgres_data` pada stack Docker lengkap. Data di kedua volume tidak berpindah otomatis.
 
-Contoh `.env.example` sudah memakai `MQTT_LIVE_CACHE_STORE=file`, `CACHE_STORE=file`, dan `REVERB_PUBLIC_PORT=8081` agar PHP Laragon tidak memerlukan ekstensi Redis dan browser terhubung langsung ke Reverb lokal. Cache file dibagi oleh proses PHP pada direktori proyek yang sama. Sesuaikan `APP_URL`, `REVERB_ALLOWED_ORIGINS`, dan `MQTT_HOST` dengan alamat situs Laragon serta broker MQTT yang benar; Laragon tidak menyediakan broker MQTT secara otomatis.
+Contoh `.env.example` sudah memakai `MQTT_LIVE_CACHE_STORE=file`, `CACHE_STORE=file`, dan `REVERB_PUBLIC_PORT=8081` agar PHP Laragon tidak memerlukan ekstensi Redis dan browser terhubung langsung ke Reverb lokal. Cache file dibagi oleh proses PHP pada direktori proyek yang sama. Sesuaikan `APP_URL`, `REVERB_ALLOWED_ORIGINS`, dan `MQTT_HOST` dengan alamat situs Laragon serta broker MQTT eksternal yang benar. Broker MQTT tidak dijalankan oleh aplikasi.
 
 Di PowerShell pada folder proyek:
 
@@ -73,12 +73,12 @@ Salin `.env.docker.example` ke `.env.docker`, isi semua nilai `CHANGE_THIS_*`, l
 
 ```bash
 docker compose --env-file .env.docker build
-docker compose --env-file .env.docker up -d postgres redis mqtt
+docker compose --env-file .env.docker up -d postgres redis
 docker compose --env-file .env.docker run --rm app php artisan migrate --force
 docker compose --env-file .env.docker up -d
 ```
 
-Database menggunakan PostgreSQL 17 pada volume `postgres_data`. Data dari instalasi MySQL lama tidak berpindah otomatis. Migrasi `2026_10_03_000000_remove_legacy_water_analyzer_schema.php` membuang tabel dan kolom water analyzer lama dari database aplikasi; buat backup sebelum memperbarui instalasi yang masih menyimpan data lama.
+Database menggunakan PostgreSQL 17 pada volume `postgres_data`. Subscriber menghubungi broker MQTT eksternal sesuai `.env.docker` atau pengaturan web. Data dari instalasi MySQL lama tidak berpindah otomatis. Migrasi `2026_10_03_000000_remove_legacy_water_analyzer_schema.php` membuang tabel dan kolom water analyzer lama dari database aplikasi; buat backup sebelum memperbarui instalasi yang masih menyimpan data lama.
 
 Panduan distribusi image, instalasi offline, backup, restore, dan update berada di [deployment/README.md](deployment/README.md) serta [deployment/INSTALLATION.md](deployment/INSTALLATION.md).
 

@@ -12,8 +12,6 @@ x-app: &app
   depends_on:
     postgres:
       condition: service_healthy
-    mqtt:
-      condition: service_healthy
     redis:
       condition: service_healthy
   networks:
@@ -39,8 +37,6 @@ services:
       app:
         condition: service_started
       reverb:
-        condition: service_healthy
-      mqtt:
         condition: service_healthy
     networks:
       - hydroflow
@@ -100,30 +96,6 @@ services:
     networks:
       - hydroflow
 
-  mqtt:
-    image: hydroflow-mqtt:latest
-    build:
-      context: .
-      dockerfile: docker/mosquitto/Dockerfile
-    container_name: hydroflow-mqtt
-    restart: unless-stopped
-    env_file:
-      - ${APP_ENV_FILE:-.env.docker}
-    ports:
-      - "${MQTT_BIND_IP:-0.0.0.0}:${MQTT_EXTERNAL_PORT:-1883}:1883"
-      - "${MQTT_BIND_IP:-0.0.0.0}:${MQTT_WEBSOCKET_PORT:-9001}:9001"
-    volumes:
-      - mqtt_data:/mosquitto/data
-      - mqtt_log:/mosquitto/log
-    healthcheck:
-      test: ["CMD-SHELL", "mosquitto_sub -h 127.0.0.1 -p 1883 -u \"$${MQTT_BROKER_USERNAME}\" -P \"$${MQTT_BROKER_PASSWORD}\" -t '$$SYS/broker/uptime' -C 1 -W 3 >/dev/null 2>&1"]
-      interval: 15s
-      timeout: 5s
-      retries: 10
-      start_period: 10s
-    networks:
-      - hydroflow
-
   cloudflared:
     image: cloudflare/cloudflared:latest
     container_name: hydroflow-cloudflared
@@ -141,8 +113,6 @@ volumes:
   postgres_data:
   redis_data:
   app_storage:
-  mqtt_data:
-  mqtt_log:
 
 networks:
   hydroflow:

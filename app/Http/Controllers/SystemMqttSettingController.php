@@ -49,7 +49,11 @@ class SystemMqttSettingController extends Controller
         $values['is_active'] = $request->boolean('is_active');
         $values['updated_by'] = $request->user()->id;
 
-        MqttSetting::query()->updateOrCreate(['id' => 1], $values);
+        if ($current) {
+            $current->update($values);
+        } else {
+            MqttSetting::query()->create($values);
+        }
         return redirect()
             ->route('settings.mqtt.edit')
             ->with('success', 'Konfigurasi MQTT disimpan. Restart proses telemetry:subscribe agar koneksi penerima menggunakan broker baru.');
@@ -75,7 +79,7 @@ class SystemMqttSettingController extends Controller
         }
 
         return [
-            'mode' => $validated['mode'],
+            'mode' => 'external',
             'host' => $validated['host'],
             'port' => (int) $validated['port'],
             'client_id_prefix' => $validated['client_id_prefix'],

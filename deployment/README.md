@@ -113,7 +113,7 @@ Restore menghentikan proses aplikasi yang dapat menulis database dan meminta kon
 
 ```bash
 docker compose --env-file .env.docker ps
-docker compose --env-file .env.docker logs --tail=100 app telemetry-subscriber scheduler redis reverb nginx mqtt
+docker compose --env-file .env.docker logs --tail=100 app telemetry-subscriber scheduler redis reverb nginx
 curl -i http://127.0.0.1:8080/up
 ```
 

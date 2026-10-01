@@ -14,8 +14,8 @@ else
     require_offline_images
 fi
 
-echo "Starting database and MQTT..."
-compose up -d postgres mqtt
+echo "Starting database and cache..."
+compose up -d postgres redis
 
 echo "Running database migrations..."
 compose run --rm app php artisan migrate --force

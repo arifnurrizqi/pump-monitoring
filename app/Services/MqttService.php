@@ -4,6 +4,7 @@ namespace App\Services;
 
 use PhpMqtt\Client\ConnectionSettings;
 use PhpMqtt\Client\MqttClient;
+use RuntimeException;
 
 class MqttService
 {
@@ -17,6 +18,9 @@ class MqttService
     public function connect(?array $overrides = null, ?string $clientIdOverride = null): void
     {
         $mqtt = $this->configuration->resolve($overrides);
+        if (! is_string($mqtt['host']) || trim($mqtt['host']) === '') {
+            throw new RuntimeException('Host broker MQTT eksternal belum dikonfigurasi. Isi MQTT_HOST atau pengaturan MQTT di dashboard.');
+        }
         $clientId = $clientIdOverride ?? sprintf(
             '%s-%s',
             $mqtt['client_id_prefix'],

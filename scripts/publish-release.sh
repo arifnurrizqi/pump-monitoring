@@ -19,16 +19,13 @@ esac
 
 APP_IMAGE="$REGISTRY/hydroflow-app:$VERSION"
 NGINX_IMAGE="$REGISTRY/hydroflow-nginx:$VERSION"
-MQTT_IMAGE="$REGISTRY/hydroflow-mqtt:$VERSION"
 
 echo "Building Hydroflow release $VERSION..."
 docker build --pull --target app -t "$APP_IMAGE" .
 docker build --target nginx -t "$NGINX_IMAGE" .
-docker build --pull -f docker/mosquitto/Dockerfile -t "$MQTT_IMAGE" .
 
 echo "Pushing release images..."
 docker push "$APP_IMAGE"
 docker push "$NGINX_IMAGE"
-docker push "$MQTT_IMAGE"
 
 echo "Published Hydroflow $VERSION to $REGISTRY."
