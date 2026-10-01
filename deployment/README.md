@@ -45,7 +45,7 @@ Image resmi repository ini diterbitkan oleh GitHub Actions ke namespace `ghcr.io
 
 ## Instalasi offline
 
-Artifact release offline berisi image Hydroflow, MySQL, Redis, Cloudflared, Compose, dan script deployment. Server client tidak perlu login GHCR maupun menarik image dari internet.
+Artifact release offline berisi image Hydroflow, PostgreSQL, Redis, Cloudflared, Compose, dan script deployment. Server client tidak perlu login GHCR maupun menarik image dari internet.
 
 1. Pastikan bundle sesuai arsitektur server:
 
@@ -104,7 +104,7 @@ Untuk update offline, unduh/kirim artifact versi baru, load bundle barunya, ubah
 
 ```bash
 ./scripts/backup.sh
-./scripts/restore.sh backups/hydroflow-YYYYMMDDTHHMMSSZ.sql.gz
+./scripts/restore.sh backups/hydroflow-YYYYMMDDTHHMMSSZ.dump
 ```
 
 Restore menghentikan proses aplikasi yang dapat menulis database dan meminta konfirmasi eksplisit.
@@ -113,7 +113,7 @@ Restore menghentikan proses aplikasi yang dapat menulis database dan meminta kon
 
 ```bash
 docker compose --env-file .env.docker ps
-docker compose --env-file .env.docker logs --tail=100 app queue telemetry-subscriber scheduler redis reverb nginx mqtt
+docker compose --env-file .env.docker logs --tail=100 app telemetry-subscriber scheduler redis reverb nginx mqtt
 curl -i http://127.0.0.1:8080/up
 ```
 

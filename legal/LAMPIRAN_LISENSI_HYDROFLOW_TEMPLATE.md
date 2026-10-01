@@ -52,7 +52,7 @@ Pelaksana IT Pengguna: `[NAMA]`
 | Penerimaan telemetry | `[LULUS/TIDAK]` |  |
 | Dashboard realtime | `[LULUS/TIDAK]` |  |
 | Alarm | `[LULUS/TIDAK]` |  |
-| MQTT drain valve dan ACK | `[LULUS/TIDAK]` |  |
+| Parameter pompa, power meter, dan histori interval | `[LULUS/TIDAK]` |  |
 | Backup awal | `[LULUS/TIDAK]` |  |
 | Dokumentasi/credential diserahkan aman | `[LULUS/TIDAK]` |  |
 

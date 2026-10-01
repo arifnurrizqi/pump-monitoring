@@ -11,7 +11,6 @@ return new class extends Migration
         Schema::create('devices', function (Blueprint $table) {
             $table->id();
             $table->string('device_sn')->unique();
-            $table->string('api_token')->nullable()->unique();
             $table->string('device_tag');
             $table->string('location')->nullable();
             $table->text('description')->nullable();

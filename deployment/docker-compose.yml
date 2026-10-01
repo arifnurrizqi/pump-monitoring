@@ -10,7 +10,7 @@ x-app: &app
     - app_storage:/var/www/html/storage
     - ./certificates:/run/secrets/hydroflow:ro
   depends_on:
-    mysql:
+    postgres:
       condition: service_healthy
     mqtt:
       condition: service_healthy
@@ -39,10 +39,6 @@ services:
         condition: service_healthy
     networks: [hydroflow]
 
-  queue:
-    <<: *app
-    command: php artisan queue:work --sleep=1 --tries=3 --timeout=90 --max-time=3600
-
   telemetry-subscriber:
     <<: *app
     command: php artisan telemetry:subscribe
@@ -62,19 +58,16 @@ services:
     <<: *app
     command: php artisan schedule:work
 
-  mysql:
-    image: mysql:8.4
+  postgres:
+    image: postgres:17-alpine
     pull_policy: ${HYDROFLOW_PULL_POLICY:-missing}
     restart: unless-stopped
     env_file:
       - ${APP_ENV_FILE:-.env.docker}
-    command:
-      - --character-set-server=utf8mb4
-      - --collation-server=utf8mb4_unicode_ci
     volumes:
-      - mysql_data:/var/lib/mysql
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u$${MYSQL_USER} -p$${MYSQL_PASSWORD} --silent"]
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -127,7 +120,7 @@ services:
     networks: [hydroflow]
 
 volumes:
-  mysql_data:
+  postgres_data:
   redis_data:
   app_storage:
   mqtt_data:

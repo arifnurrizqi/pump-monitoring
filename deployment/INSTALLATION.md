@@ -14,7 +14,7 @@ Dokumen ini ditujukan untuk tim IT client. Instalasi menggunakan bundle Docker o
 | Sistem operasi | Linux 64-bit dengan Docker Engine dan Docker Compose v2 |
 | Waktu | NTP aktif, timezone server disarankan `Asia/Jakarta` |
 
-Spesifikasi minimum cocok untuk instalasi kecil/demo. Proses PHP-FPM, queue, scheduler, Reverb, MySQL, MQTT, dan Nginx berjalan bersamaan sehingga swap wajib disediakan bila RAM hanya 2 GB.
+Spesifikasi minimum cocok untuk instalasi kecil/demo. Proses PHP-FPM, subscriber telemetry, scheduler, Reverb, PostgreSQL, MQTT, dan Nginx berjalan bersamaan sehingga swap wajib disediakan bila RAM hanya 2 GB.
 
 ### Rekomendasi production
 
@@ -38,7 +38,7 @@ Kapasitas penyimpanan harus disesuaikan lagi dengan jumlah device, interval peng
 | `80/443` | Reverse proxy HTTPS atau Cloudflare | Internet jika diperlukan |
 | `7844/tcp+udp` outbound | Cloudflare Tunnel | Hanya jika memakai tunnel |
 
-MySQL dan Reverb tidak dipublikasikan ke host.
+PostgreSQL dan Reverb tidak dipublikasikan ke host.
 
 ## 2. Informasi yang harus disiapkan
 
@@ -133,8 +133,7 @@ Gunakan hasilnya untuk:
 APP_KEY=base64:HASIL_PERTAMA
 
 DB_PASSWORD=HASIL_PASSWORD_DATABASE
-MYSQL_PASSWORD=HASIL_PASSWORD_DATABASE
-MYSQL_ROOT_PASSWORD=HASIL_PASSWORD_ROOT_DATABASE_YANG_BERBEDA
+POSTGRES_PASSWORD=HASIL_PASSWORD_DATABASE
 
 MQTT_PASSWORD=HASIL_PASSWORD_MQTT
 MQTT_BROKER_PASSWORD=HASIL_PASSWORD_MQTT
@@ -268,7 +267,7 @@ Loader akan:
 Periksa image:
 
 ```bash
-docker image ls | grep -E 'hydroflow|mysql|cloudflared'
+docker image ls | grep -E 'hydroflow|postgres|cloudflared'
 ```
 
 ## 8. Validasi konfigurasi
@@ -295,7 +294,7 @@ Permission yang diharapkan:
 ./scripts/install.sh
 ```
 
-Installer akan memeriksa konfigurasi dan image, menyalakan MySQL/MQTT, menjalankan migration, kemudian menyalakan seluruh service. Mode offline tidak melakukan `docker pull`.
+Installer akan memeriksa konfigurasi dan image, menyalakan PostgreSQL/MQTT, menjalankan migration, kemudian menyalakan seluruh service. Mode offline tidak melakukan `docker pull`.
 
 Periksa status:
 
@@ -307,9 +306,9 @@ Kondisi yang diharapkan:
 
 ```text
 app        Up
-queue      Up
+telemetry-subscriber Up
 scheduler  Up
-mysql      Up (healthy)
+postgres   Up (healthy)
 mqtt       Up (healthy)
 reverb     Up (healthy)
 nginx      Up (healthy)
@@ -327,7 +326,7 @@ Administrator akan melihat menu **MQTT Broker** pada sidebar. Buka menu tersebut
 - Biarkan **Use web configuration** mati bila Laravel memakai broker Docker dari `.env` (`mqtt:1883`).
 - Aktifkan untuk memakai broker external/server terpisah, lalu isi hostname yang dapat dijangkau dari dalam container, port, username, password, dan TLS.
 - Klik **Test Connection** sebelum **Save Configuration**. Test tidak menyimpan perubahan.
-- Setelah disimpan, queue worker otomatis diminta restart dan membaca konfigurasi baru pada job berikutnya.
+- Setelah disimpan, jalankan `docker compose --env-file .env.docker restart telemetry-subscriber` agar koneksi penerima memakai broker baru.
 
 Password MQTT disimpan terenkripsi menggunakan `APP_KEY`. Jangan mengganti `APP_KEY` setelah konfigurasi disimpan. Jika broker external memakai CA private, salin certificate ke:
 
@@ -361,22 +360,16 @@ Kemudian lakukan pengujian berikut dari browser:
 - Dashboard dapat dibuka.
 - Developer Tools > Network > WS menunjukkan koneksi `/app/...` dengan status `101`.
 - Telemetry test masuk dan nilai dashboard berubah tanpa refresh.
-- MQTT command drain valve diterima subscriber.
-- ACK perangkat mengubah status command menjadi berhasil.
+- Parameter power meter dan sensor motor tampil sesuai sumber gateway yang didaftarkan.
+- Histori interval dan alarm ambang parameter dapat dibuka.
 - Waktu telemetry sesuai timezone Asia/Jakarta.
-
-Periksa job gagal:
-
-```bash
-docker compose --env-file .env.docker exec app php artisan queue:failed
-```
 
 ## 11. Log dan diagnosis
 
 ```bash
 docker compose --env-file .env.docker logs --tail=100 app
 docker compose --env-file .env.docker logs --tail=100 nginx
-docker compose --env-file .env.docker logs --tail=100 queue
+docker compose --env-file .env.docker logs --tail=100 telemetry-subscriber
 docker compose --env-file .env.docker logs --tail=100 reverb
 docker compose --env-file .env.docker logs --tail=100 mqtt
 docker compose --env-file .env.docker logs --tail=100 cloudflared
@@ -391,7 +384,7 @@ Masalah umum:
 | `no matching manifest` | Bundle tidak sesuai arsitektur server. |
 | MQTT gagal start | Periksa konflik port `1883` dengan `ss -ltnp`. |
 | Domain `502` | Periksa target reverse proxy/tunnel dan origin lokal `/up`. |
-| Realtime offline | Periksa `REVERB_PUBLIC_*`, allowed origins, Nginx, queue, dan Reverb. |
+| Realtime offline | Periksa `REVERB_PUBLIC_*`, allowed origins, Nginx, subscriber, dan Reverb. |
 | Cookie/login berulang | Pastikan `SESSION_SECURE_COOKIE` sesuai HTTP atau HTTPS. |
 
 ## 12. Backup awal
@@ -443,7 +436,7 @@ Rollback kode tanpa rollback database belum tentu aman setelah migration. Gunaka
 3. Restore backup sebelum update:
 
    ```bash
-   ./scripts/restore.sh backups/hydroflow-TIMESTAMP.sql.gz
+   ./scripts/restore.sh backups/hydroflow-TIMESTAMP.dump
    ```
 
 4. Periksa container, `/up`, login, telemetry, MQTT, dan realtime.
@@ -458,7 +451,7 @@ Rollback kode tanpa rollback database belum tentu aman setelah migration. Gunaka
 - [ ] Firewall membatasi dashboard dan MQTT sesuai kebutuhan.
 - [ ] Seluruh container berada pada kondisi yang diharapkan.
 - [ ] Health endpoint menghasilkan `200`.
-- [ ] Login, telemetry, realtime, alarm, dan drain valve diuji.
+- [ ] Login, telemetry MQTT, realtime, histori, dan alarm parameter diuji.
 - [ ] Backup awal dibuat dan disalin ke luar server.
 - [ ] Password, token, dan dokumen akses diserahkan melalui kanal aman.
 - [ ] Versi aplikasi dan tanggal instalasi dicatat pada dokumen aset IT.

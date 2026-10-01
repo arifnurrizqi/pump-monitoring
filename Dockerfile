@@ -8,11 +8,11 @@ COPY public ./public
 RUN npm run build
 
 FROM php:8.4-fpm-alpine AS app
-RUN apk add --no-cache icu-libs libzip oniguruma su-exec \
-    && apk add --no-cache --virtual .build-deps $PHPIZE_DEPS icu-dev libzip-dev oniguruma-dev \
+RUN apk add --no-cache icu-libs libzip oniguruma su-exec libpq \
+    && apk add --no-cache --virtual .build-deps $PHPIZE_DEPS icu-dev libzip-dev oniguruma-dev postgresql-dev \
     && pecl install redis \
     && docker-php-ext-enable redis \
-    && docker-php-ext-install -j$(nproc) pdo_mysql mbstring intl zip bcmath pcntl opcache \
+    && docker-php-ext-install -j$(nproc) pdo_pgsql mbstring intl zip bcmath pcntl opcache \
     && apk del .build-deps
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 WORKDIR /var/www/html

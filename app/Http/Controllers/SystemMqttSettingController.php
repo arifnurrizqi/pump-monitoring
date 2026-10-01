@@ -7,7 +7,6 @@ use App\Models\MqttSetting;
 use App\Services\MqttConfigurationService;
 use App\Services\MqttService;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Support\Facades\Artisan;
 use Illuminate\View\View;
 use Throwable;
 
@@ -51,11 +50,9 @@ class SystemMqttSettingController extends Controller
         $values['updated_by'] = $request->user()->id;
 
         MqttSetting::query()->updateOrCreate(['id' => 1], $values);
-        Artisan::call('queue:restart');
-
         return redirect()
             ->route('settings.mqtt.edit')
-            ->with('success', 'Konfigurasi MQTT berhasil disimpan. Queue akan menggunakan konfigurasi baru pada job berikutnya.');
+            ->with('success', 'Konfigurasi MQTT disimpan. Restart proses telemetry:subscribe agar koneksi penerima menggunakan broker baru.');
     }
 
     private function authorizeAdmin(): void

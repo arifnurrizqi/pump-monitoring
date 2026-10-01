@@ -15,7 +15,7 @@ else
 fi
 
 echo "Starting database and MQTT..."
-compose up -d mysql mqtt
+compose up -d postgres mqtt
 
 echo "Running database migrations..."
 compose run --rm app php artisan migrate --force

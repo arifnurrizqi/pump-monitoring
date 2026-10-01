@@ -19,6 +19,24 @@ class MqttParameterMonitoringTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_unsupported_schema_version_is_not_ingested(): void
+    {
+        config()->set('mqtt.live_cache_store', 'array');
+        Event::fake([SourceTelemetryUpdated::class]);
+        $device = Device::create(['device_sn' => 'GW-PUMP-LEGACY', 'device_tag' => 'Gateway Pompa', 'is_active' => true]);
+        $source = $device->sources()->create(['source_key' => 'PM-01', 'name' => 'Power meter', 'type' => 'power_meter']);
+        $source->parameters()->create(['key' => 'voltage_l1', 'label' => 'Tegangan L1', 'unit' => 'V']);
+
+        app(MqttTelemetryReceiver::class)->receive('devices/GW-PUMP-LEGACY/telemetry', json_encode([
+            'schema_version' => 1, 'device_sn' => $device->device_sn,
+            'message_id' => 'legacy-1', 'recorded_at' => now()->toIso8601String(),
+            'sources' => [['source' => 'PM-01', 'values' => ['voltage_l1' => 230]]],
+        ], JSON_THROW_ON_ERROR));
+
+        Event::assertNotDispatched(SourceTelemetryUpdated::class);
+        $this->assertDatabaseCount('source_intervals', 0);
+    }
+
     public function test_version_two_broadcasts_each_sample_and_saves_one_interval_per_source(): void
     {
         config()->set('mqtt.live_cache_store', 'array');

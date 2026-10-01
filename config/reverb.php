@@ -90,7 +90,7 @@ return [
                 ],
                 'allowed_origins' => array_values(array_filter(array_map(
                     'trim',
-                    explode(',', env('REVERB_ALLOWED_ORIGINS', 'localhost,127.0.0.1,water-analyzer-dashboard.test'))
+                    explode(',', env('REVERB_ALLOWED_ORIGINS', 'localhost,127.0.0.1'))
                 ))),
                 'ping_interval' => env('REVERB_APP_PING_INTERVAL', 60),
                 'activity_timeout' => env('REVERB_APP_ACTIVITY_TIMEOUT', 30),

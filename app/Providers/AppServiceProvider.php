@@ -3,8 +3,6 @@
 namespace App\Providers;
 
 use App\Models\AlarmLog;
-use App\Models\TelemetryRaw;
-use App\Observers\TelemetryObserver;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
@@ -24,8 +22,6 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        TelemetryRaw::observe(TelemetryObserver::class);
-
         View::composer('layouts.app', function ($view): void {
             $activeAlarmCount = Auth::check()
                 ? AlarmLog::query()

@@ -52,7 +52,7 @@ docker buildx build --platform "$PLATFORM" --load --target nginx -t "arnur/hydro
 docker buildx build --pull --platform "$PLATFORM" --load -f docker/mosquitto/Dockerfile -t "arnur/hydroflow-mqtt:$VERSION" .
 
 echo "Preparing third-party images for a fully offline installation..."
-docker pull --platform "$PLATFORM" mysql:8.4
+docker pull --platform "$PLATFORM" postgres:17-alpine
 docker pull --platform "$PLATFORM" redis:7-alpine
 docker pull --platform "$PLATFORM" cloudflare/cloudflared:latest
 
@@ -61,7 +61,7 @@ docker save -o "$RAW_IMAGE_BUNDLE" \
     "arnur/hydroflow-app:$VERSION" \
     "arnur/hydroflow-nginx:$VERSION" \
     "arnur/hydroflow-mqtt:$VERSION" \
-    mysql:8.4 \
+    postgres:17-alpine \
     redis:7-alpine \
     cloudflare/cloudflared:latest
 gzip -c "$RAW_IMAGE_BUNDLE" > "$IMAGE_BUNDLE"

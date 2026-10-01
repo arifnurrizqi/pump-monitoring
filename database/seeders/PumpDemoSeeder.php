@@ -30,7 +30,6 @@ class PumpDemoSeeder extends Seeder
                 ['device_sn' => $definition['sn']],
                 [
                     'device_tag' => $definition['tag'],
-                    'api_token' => 'demo-pump-token-'.($index + 1),
                     'production_site_id' => $site->id,
                     'location' => $definition['site_name'],
                     'description' => 'Gateway demo monitoring pompa',
@@ -43,7 +42,7 @@ class PumpDemoSeeder extends Seeder
                 $device->users()->syncWithoutDetaching([$operator->id => ['role' => 'operator']]);
             }
             $device->setting()->updateOrCreate(['device_id' => $device->id], [
-                'send_interval_sec' => 10, 'timezone' => 'Asia/Jakarta', 'alarm_enabled' => true,
+                'send_interval_sec' => 10,
             ]);
 
             $asset = $site->assets()->updateOrCreate(

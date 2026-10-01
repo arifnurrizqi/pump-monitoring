@@ -3,7 +3,7 @@ set -eu
 . "$(dirname -- "$0")/common.sh"
 
 if [ "$#" -lt 1 ]; then
-    echo "Usage: $0 BACKUP.sql.gz [--yes]" >&2
+    echo "Usage: $0 BACKUP.dump [--yes]" >&2
     exit 1
 fi
 
@@ -20,10 +20,7 @@ if [ "${2:-}" != "--yes" ]; then
 fi
 
 require_configured_env
-RESTORE_SQL="$DEPLOY_DIR/.restore-$$.sql"
-trap 'rm -f "$RESTORE_SQL"' EXIT HUP INT TERM
-gzip -dc "$BACKUP_FILE" > "$RESTORE_SQL"
-compose stop app queue reverb scheduler
-compose exec -T mysql sh -c 'exec mysql -u root -p"$MYSQL_ROOT_PASSWORD" "$MYSQL_DATABASE"' < "$RESTORE_SQL"
-compose up -d app queue reverb scheduler nginx
+compose stop app telemetry-subscriber reverb scheduler
+compose exec -T postgres sh -c 'exec pg_restore --clean --if-exists --no-owner --no-acl -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < "$BACKUP_FILE"
+compose up -d app telemetry-subscriber reverb scheduler nginx
 echo "Database restored from: $BACKUP_FILE"

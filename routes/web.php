@@ -31,9 +31,6 @@ Route::middleware(['auth'])->group(function () {
     Route::patch('/devices/{device}/access/{user}', [DeviceController::class, 'updateAccess'])->name('devices.access.update');
     Route::delete('/devices/{device}/access/{user}', [DeviceController::class, 'removeAccess'])->name('devices.access.remove');
 
-    Route::get('/devices/{device}/settings/edit', [MonitoringConfigurationController::class, 'index'])
-        ->name('devices.settings.edit');
-
     Route::get('/alarms', [AlarmController::class, 'index'])->name('alarms.index');
     Route::patch('/alarms/{alarm}/acknowledge', [AlarmController::class, 'acknowledge'])->name('alarms.ack');
 

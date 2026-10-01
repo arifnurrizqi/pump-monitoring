@@ -10,11 +10,15 @@ use Illuminate\Support\Facades\Cache;
 
 class SourceTelemetryBucketService
 {
-    public function __construct(private readonly TelemetryBucketService $legacyBuckets) {}
-
     public function bucketStart(Carbon $time): string
     {
-        return $this->legacyBuckets->bucketStart($time);
+        $interval = max(60, (int) config('mqtt.history_interval_seconds', 60));
+        if (3600 % $interval !== 0) {
+            $interval = 60;
+        }
+
+        return Carbon::createFromTimestampUTC(intdiv($time->timestamp, $interval) * $interval)
+            ->toDateTimeString();
     }
 
     /** @param array<string, mixed>|null $bucket

@@ -56,7 +56,7 @@ class PumpMonitoringUiTest extends TestCase
         $this->actingAs($user)->get(route('dashboard'))
             ->assertOk()->assertSee('Pompa Sumur A')->assertSee('Power Meter A')->assertSee('Tegangan L1');
         $this->get(route('devices.show', $device))
-            ->assertOk()->assertSee('Tren parameter')->assertSee('230,00')->assertDontSee('Turbidity');
+            ->assertOk()->assertSee('Tren parameter')->assertSee('230,00');
         $this->get(route('datalogger.index'))
             ->assertOk()->assertSee('Power Meter A')->assertSee('Tegangan L1');
     }

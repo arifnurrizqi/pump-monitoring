@@ -8,7 +8,6 @@ use JsonException;
 class MqttTelemetryReceiver
 {
     public function __construct(
-        private readonly MqttLiveIngestionService $ingestion,
         private readonly MqttParameterIngestionService $parameterIngestion,
     ) {}
 
@@ -43,12 +42,7 @@ class MqttTelemetryReceiver
             return;
         }
 
-        $version = $payload['schema_version'] ?? 1;
-        $result = match ($version) {
-            1 => $this->ingestion->ingest($payload),
-            2 => $this->parameterIngestion->ingest($payload),
-            default => 'unsupported_schema',
-        };
+        $result = $this->parameterIngestion->ingest($payload);
 
         if (! in_array($result, ['accepted', 'duplicate'], true)) {
             Log::warning('MQTT telemetry ditolak', [

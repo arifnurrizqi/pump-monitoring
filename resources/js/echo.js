@@ -3,7 +3,7 @@ import Echo from 'laravel-echo';
 import Pusher from 'pusher-js';
 window.Pusher = Pusher;
 
-const runtime = window.HydroflowRuntime?.reverb;
+const runtime = window.PumpMonitoringRuntime?.reverb;
 
 if (runtime?.key && runtime?.host) {
     window.Echo = new Echo({

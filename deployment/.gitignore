@@ -1,5 +1,4 @@
 .env.docker
 backups/
-.restore-*.sql
 certificates/*
 !certificates/.gitkeep

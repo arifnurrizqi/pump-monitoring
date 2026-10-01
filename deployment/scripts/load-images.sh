@@ -56,4 +56,4 @@ echo "Loading Docker images..."
 gzip -dc "$BUNDLE" | docker load
 
 echo "Offline images loaded successfully:"
-docker image ls --format '{{.Repository}}:{{.Tag}}' | grep -E '^(arnur/hydroflow-|mysql:8\.4|cloudflare/cloudflared:latest)' || true
+docker image ls --format '{{.Repository}}:{{.Tag}}' | grep -E '^(arnur/hydroflow-|postgres:17-alpine|cloudflare/cloudflared:latest)' || true

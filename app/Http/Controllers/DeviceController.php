@@ -9,7 +9,6 @@ use App\Models\User;
 use App\Services\SourceLiveState;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
 use Illuminate\View\View;
 
 class DeviceController extends Controller
@@ -88,7 +87,6 @@ class DeviceController extends Controller
         } else {
             $device = Device::create([
                 'device_sn' => $data['device_sn'],
-                'api_token' => Str::random(60),
                 'device_tag' => $data['device_tag'],
                 'location' => $data['location'] ?? null,
                 'description' => $data['description'] ?? null,
@@ -103,10 +101,7 @@ class DeviceController extends Controller
         $device->setting()->firstOrCreate(
             ['device_id' => $device->id],
             [
-                'alarm_enabled' => true,
-                'sampling_interval_sec' => 10,
                 'send_interval_sec' => 10,
-                'timezone' => 'Asia/Jakarta',
             ]
         );
 
