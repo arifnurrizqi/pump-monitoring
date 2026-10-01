@@ -19,7 +19,7 @@ class MonitoringConfigurationController extends Controller
     public function index(Device $device): View
     {
         $this->authorizeAccess($device);
-        $device->load(['site.assets', 'sources.asset', 'sources.parameters']);
+        $device->load(['site.assets', 'setting', 'sources.asset', 'sources.parameters']);
         $canEdit = auth()->user()->devices()->where('devices.id', $device->id)
             ->wherePivotIn('role', ['owner', 'operator'])->exists();
         $availableSites = ProductionSite::whereIn('id', auth()->user()->devices()
@@ -50,6 +50,17 @@ class MonitoringConfigurationController extends Controller
         $device->update(['production_site_id' => $site->id]);
 
         return back()->with('success', 'Lokasi produksi disimpan.');
+    }
+
+    public function gateway(Request $request, Device $device): RedirectResponse
+    {
+        $this->authorizeEdit($device);
+        $data = $request->validate([
+            'send_interval_sec' => ['required', 'integer', 'between:1,3600'],
+        ]);
+        $device->setting()->updateOrCreate(['device_id' => $device->id], $data);
+
+        return back()->with('success', 'Interval pengiriman gateway diperbarui.');
     }
 
     public function asset(Request $request, Device $device): RedirectResponse

@@ -7,8 +7,8 @@
             </svg>
         </a>
         <div>
-            <h1 class="text-2xl font-bold text-gray-900 leading-tight">Add Device</h1>
-            <p class="text-sm text-gray-500 mt-1">Register a new monitoring device</p>
+            <h1 class="text-2xl font-bold text-gray-900 leading-tight">Tambah gateway</h1>
+            <p class="text-sm text-gray-500 mt-1">Daftarkan gateway untuk pompa dan sensor produksi</p>
         </div>
     </div>
 

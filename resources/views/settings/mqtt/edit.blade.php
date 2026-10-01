@@ -174,7 +174,7 @@
 
             <div class="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-xs leading-relaxed text-amber-900">
                 <p class="font-bold">Perhatian</p>
-                <p class="mt-2">Mengganti broker memengaruhi seluruh command drain valve. Lakukan Test Connection sebelum menyimpan dan pastikan device subscribe pada broker yang sama.</p>
+                <p class="mt-2">Mengganti broker memengaruhi penerimaan data seluruh gateway. Uji koneksi sebelum menyimpan dan pastikan gateway memakai broker yang sama.</p>
             </div>
         </aside>
     </div>

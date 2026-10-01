@@ -1,7 +1,7 @@
 <x-app-layout>
     <div class="mb-6">
         <h1 class="text-2xl font-bold text-gray-900 leading-tight">Alarm</h1>
-        <p class="text-sm text-gray-500 mt-1">History &amp; active alarm logs</p>
+        <p class="text-sm text-gray-500 mt-1">Riwayat peringatan parameter pompa dan sensor</p>
     </div>
 
     {{-- Flash --}}
@@ -37,11 +37,11 @@
             {{-- Device --}}
             @if(isset($devices))
             <div class="flex flex-col gap-1">
-                <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Device</label>
+                <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Gateway</label>
                 <select name="device_id"
                         class="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900
                                focus:border-blue-400 focus:ring-blue-400 focus:bg-white transition-colors min-w-[210px]">
-                    <option value="">All Devices</option>
+                    <option value="">Semua gateway</option>
                     @foreach($devices as $d)
                         <option value="{{ $d->id }}" {{ request('device_id') == $d->id ? 'selected' : '' }}>
                             {{ $d->device_tag }}

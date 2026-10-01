@@ -7,7 +7,7 @@
             </svg>
         </a>
         <div>
-            <h1 class="text-2xl font-bold text-gray-900 leading-tight">Edit Device</h1>
+            <h1 class="text-2xl font-bold text-gray-900 leading-tight">Edit gateway</h1>
             <p class="text-sm text-gray-500 mt-1">{{ $device->device_tag }}</p>
         </div>
     </div>

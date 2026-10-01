@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
-    <title>{{ isset($title) ? $title . ' — ' : '' }}{{ config('app.name', 'Water Analyzer') }}</title>
+    <title>{{ isset($title) ? $title . ' — ' : '' }}Pump Monitoring</title>
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.bunny.net">
@@ -49,10 +49,10 @@
                 <div class="flex items-center gap-3 min-w-0">
                     <div class="min-w-0">
                         <h1 class="text-lg font-bold text-gray-900 truncate leading-tight">
-                            {{ config('app.name') }}
+                            Pump Monitoring
                         </h1>
                         <p class="text-[10px] text-gray-400 truncate leading-tight">
-                            {{ config('app.description') }}
+                            Pemantauan gateway dan pompa
                         </p>
                     </div>
                 </div>
@@ -63,14 +63,6 @@
                         <span data-realtime-connection-dot class="h-2 w-2 rounded-full bg-amber-400"></span>
                         <span data-realtime-connection-label>Connecting</span>
                     </div>
-
-                    <!-- Client Logo -->
-                    <div class="hidden sm:flex items-center flex-shrink-0 h-10">
-                        <img src="{{ asset('images/logo_user.png') }}" alt="Logo" class="h-8 w-auto object-contain">
-                    </div>
-
-                    <!-- Vertical Divider -->
-                    <div class="hidden sm:block h-8 w-px bg-gray-200"></div>
 
                     <!-- User Profile -->
                     <div class="flex items-center gap-2.5">
@@ -139,7 +131,7 @@
                          M3 14.5c0 2.485 4.03 4.5 9 4.5s9-2.015 9-4.5v3c0 2.485-4.03 4.5-9 4.5s-9-2.015-9-4.5v-3z
                          M12 12c-4.97 0-9-2.015-9-4.5S7.03 3 12 3s9 2.015 9 4.5-4.03 4.5-9 4.5z"/>
             </svg>
-            <span class="text-[10px] font-semibold mt-1">Logs</span>
+            <span class="text-[10px] font-semibold mt-1">Histori</span>
         </a>
 
         {{-- Alarm --}}
@@ -175,7 +167,7 @@
                          2-2 2 2 0 0 1-2 2zm6 0a2 2 0 1 1 2-2 2 2 0 0 1-2 2zM2 20v8h44v-8zm30 6a2 2 0 1 1 2-2
                          2 2 0 0 1-2 2zm6 0a2 2 0 1 1 2-2 2 2 0 0 1-2 2z"/>
             </svg>
-            <span class="text-[10px] font-semibold mt-1">Devices</span>
+            <span class="text-[10px] font-semibold mt-1">Gateway</span>
         </a>
 
         {{-- Settings --}}

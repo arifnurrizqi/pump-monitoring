@@ -2,205 +2,85 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Device;
-use App\Models\TelemetryDaily;
-// models
-use App\Models\TelemetryHourly;
-use App\Models\TelemetryMonthly;
-use App\Models\TelemetryRaw;
-use App\Models\TelemetryYearly;
+use App\Models\SourceInterval;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class DataloggerController extends Controller
 {
-    protected function getModel(string $type)
-    {
-        return match ($type) {
-            'hourly' => TelemetryHourly::class,
-            'daily' => TelemetryDaily::class,
-            'monthly' => TelemetryMonthly::class,
-            'yearly' => TelemetryYearly::class,
-            default => TelemetryRaw::class,
-        };
-    }
-
-    protected function getTimeColumn(string $type): string
-    {
-        return $type === 'raw' ? 'recorded_at' : 'period_start';
-    }
-
     public function index(Request $request): View
     {
-        $validated = $request->validate([
-            'type' => ['nullable', 'in:raw,hourly,daily,monthly,yearly'],
+        $filters = $this->filters($request);
+        $devices = auth()->user()->devices()->with('sources')->orderBy('device_tag')->get();
+        $logs = $this->query($devices->pluck('id')->all(), $filters)
+            ->with(['source.device', 'source.parameters'])
+            ->latest('bucket_start')->paginate(20)->withQueryString();
+
+        return view('datalogger.index', compact('devices', 'logs', 'filters'));
+    }
+
+    public function export(Request $request): StreamedResponse
+    {
+        $filters = $this->filters($request);
+        $deviceIds = auth()->user()->devices()->pluck('devices.id')->all();
+
+        return response()->streamDownload(function () use ($deviceIds, $filters): void {
+            $output = fopen('php://output', 'w');
+            fputcsv($output, ['gateway', 'source', 'bucket_start', 'last_recorded_at', 'sample_count', 'parameter', 'unit', 'average', 'min', 'max', 'last', 'quality']);
+            $this->query($deviceIds, $filters)->with(['source.device', 'source.parameters'])
+                ->orderBy('id')->chunkById(200, function ($intervals) use ($output): void {
+                    foreach ($intervals as $interval) {
+                        $parameters = $interval->source->parameters->keyBy('key');
+                        foreach ($interval->metrics as $key => $metric) {
+                            $count = $metric['count'] ?? 0;
+                            fputcsv($output, [
+                                $this->csvText($interval->source->device->device_tag),
+                                $this->csvText($interval->source->name),
+                                $interval->bucket_start->toIso8601String(),
+                                $interval->last_recorded_at->toIso8601String(),
+                                $interval->sample_count,
+                                $this->csvText($parameters->get($key)?->label ?? $key),
+                                $this->csvText($parameters->get($key)?->unit),
+                                $count > 0 ? $metric['sum'] / $count : null,
+                                $metric['min'] ?? null,
+                                $metric['max'] ?? null,
+                                $metric['last'] ?? null,
+                                $this->csvText($metric['quality'] ?? null),
+                            ]);
+                        }
+                    }
+                });
+            fclose($output);
+        }, 'pump-monitoring-intervals-'.now()->format('Ymd-His').'.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
+    private function filters(Request $request): array
+    {
+        return $request->validate([
             'device_id' => ['nullable', 'integer'],
+            'source_id' => ['nullable', 'integer'],
             'from' => ['nullable', 'date'],
             'to' => ['nullable', 'date', 'after_or_equal:from'],
-        ]);
-        $type = $validated['type'] ?? 'raw';
-        $deviceIds = auth()->user()->devices()->pluck('devices.id');
-
-        $modelClass = $this->getModel($type);
-        $timeColumn = $this->getTimeColumn($type);
-
-        $query = $modelClass::with('device')->whereIn('device_id', $deviceIds);
-
-        // 🔽 filter device
-        if ($request->device_id) {
-            $query->where('device_id', $request->device_id);
-        }
-
-        // 🔽 filter tanggal (adaptif)
-        if ($request->from && $request->to) {
-            $query->whereBetween($timeColumn, [
-                $request->from,
-                $request->to,
-            ]);
-        }
-
-        // 🔽 alias waktu jadi "time"
-        $query->addSelect('*')->addSelect([
-            'time' => $timeColumn,
-        ]);
-
-        $logs = $query
-            ->orderByDesc($timeColumn)
-            ->paginate(20)
-            ->withQueryString();
-
-        $devices = auth()->user()->devices()->orderBy('device_tag')->get();
-
-        return view('datalogger.index', [
-            'logs' => $logs,
-            'type' => $type,
-            'devices' => $devices,
         ]);
     }
 
-    public function export(Request $request)
+    private function query(array $deviceIds, array $filters)
     {
-        $validated = $request->validate([
-            'type' => ['nullable', 'in:raw,hourly,daily,monthly,yearly'],
-            'device_id' => ['nullable', 'integer'],
-            'from' => ['nullable', 'date'],
-            'to' => ['nullable', 'date', 'after_or_equal:from'],
-        ]);
-        $type = $validated['type'] ?? 'raw';
-        $deviceIds = auth()->user()->devices()->pluck('devices.id');
-
-        $modelClass = $this->getModel($type);
-        $timeColumn = $this->getTimeColumn($type);
-
-        $query = $modelClass::with('device')->whereIn('device_id', $deviceIds);
-
-        // 🔽 filter device
-        if ($request->device_id) {
-            $query->where('device_id', $request->device_id);
-        }
-
-        // 🔽 filter tanggal
-        if ($request->from && $request->to) {
-            $query->whereBetween($timeColumn, [
-                $request->from,
-                $request->to,
-            ]);
-        }
-
-        $data = $query->orderByDesc($timeColumn)->get();
-
-        // ❗ HANDLE DATA KOSONG
-        if ($data->isEmpty()) {
-            return back()->with('error', "Data $type belum tersedia untuk diexport.");
-        }
-
-        $filename = 'datalogger_'.$type.'_'.now()->format('Ymd_His').'.csv';
-
-        return response()->streamDownload(function () use ($data, $type, $timeColumn) {
-
-            $handle = fopen('php://output', 'w');
-
-            // ========================
-            // HEADER CSV
-            // ========================
-            if ($type === 'raw') {
-
-                fputcsv($handle, [
-                    'Waktu',
-                    'Device',
-                    'Samples',
-                    'AVG pH', 'MIN pH', 'MAX pH',
-                    'AVG Turbidity', 'MIN Turbidity', 'MAX Turbidity',
-                    'AVG Sample Flow (L/min)', 'MIN Sample Flow', 'MAX Sample Flow',
-                    'Usage (L)',
-                    'Sensor Distance (cm)',
-                    'Water Height (cm)',
-                    'Level (%)',
-                    'Signal (dBm)',
-                ]);
-
-                foreach ($data as $row) {
-                    fputcsv($handle, [
-                        optional($row->$timeColumn)->format('Y-m-d H:i:s'),
-                        $row->device->device_tag ?? '-',
-                        $row->sample_count ?? 1,
-                        $row->ph,
-                        $row->raw_payload['metrics']['ph']['min'] ?? $row->ph,
-                        $row->raw_payload['metrics']['ph']['max'] ?? $row->ph,
-                        $row->turbidity,
-                        $row->raw_payload['metrics']['turbidity']['min'] ?? $row->turbidity,
-                        $row->raw_payload['metrics']['turbidity']['max'] ?? $row->turbidity,
-                        $row->sample_flow,
-                        $row->raw_payload['metrics']['sample_flow']['min'] ?? $row->sample_flow,
-                        $row->raw_payload['metrics']['sample_flow']['max'] ?? $row->sample_flow,
-                        $row->usage_liter,
-                        $row->level_distance_cm,
-                        $row->level_cm,
-                        $row->level_percent,
-                        $row->signal_strength,
-                    ]);
+        return SourceInterval::query()
+            ->whereHas('source', function ($query) use ($deviceIds, $filters): void {
+                $query->whereIn('device_id', $deviceIds);
+                if (! empty($filters['device_id'])) {
+                    $query->where('device_id', $filters['device_id']);
                 }
+            })
+            ->when(! empty($filters['source_id']), fn ($query) => $query->where('data_source_id', $filters['source_id']))
+            ->when(! empty($filters['from']), fn ($query) => $query->whereDate('bucket_start', '>=', $filters['from']))
+            ->when(! empty($filters['to']), fn ($query) => $query->whereDate('bucket_start', '<=', $filters['to']));
+    }
 
-            } else {
-
-                // AGGREGATED
-                fputcsv($handle, [
-                    'Period Start',
-                    'Period End',
-                    'Device',
-
-                    'AVG pH', 'MIN pH', 'MAX pH',
-                    'AVG Turbidity', 'MIN Turbidity', 'MAX Turbidity',
-                    'AVG Sample Flow (L/min)', 'MIN Sample Flow (L/min)', 'MAX Sample Flow (L/min)',
-                    'Usage (L)',
-
-                    'AVG Level (%)', 'MIN Level (%)', 'MAX Level (%)',
-
-                    'AVG Signal', 'MIN Signal', 'MAX Signal',
-                ]);
-
-                foreach ($data as $row) {
-                    fputcsv($handle, [
-                        $row->period_start,
-                        $row->period_end,
-                        $row->device->device_tag ?? '-',
-
-                        $row->avg_ph, $row->min_ph, $row->max_ph,
-                        $row->avg_turbidity, $row->min_turbidity, $row->max_turbidity,
-                        $row->avg_sample_flow, $row->min_sample_flow, $row->max_sample_flow,
-                        $row->usage_liter,
-
-                        $row->avg_level_percent, $row->min_level_percent, $row->max_level_percent,
-
-                        $row->avg_signal_strength, $row->min_signal_strength, $row->max_signal_strength,
-                    ]);
-                }
-            }
-
-            fclose($handle);
-
-        }, $filename, [
-            'Content-Type' => 'text/csv',
-        ]);
+    private function csvText(?string $value): ?string
+    {
+        return $value !== null && preg_match('/^[\s]*[=+@-]/u', $value) ? "'".$value : $value;
     }
 }

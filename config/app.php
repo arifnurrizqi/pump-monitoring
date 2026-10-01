@@ -15,7 +15,7 @@ return [
 
     'name' => env('APP_NAME', 'Laravel'),
 
-    'description' => env('APP_DESCRIPTION', 'A IoT Water Analyzer System by ARNUR TECH'),
+    'description' => env('APP_DESCRIPTION', 'Pemantauan gateway dan pompa'),
 
     'version' => env('APP_VERSION', 'development'),
 

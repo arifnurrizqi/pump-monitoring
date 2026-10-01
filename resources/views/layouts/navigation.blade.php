@@ -4,8 +4,9 @@
      ================================================================ --}}
 
 {{-- ── Logo ─────────────────────────────────────────────────────── --}}
-<div class="flex items-center justify-center px-5 h-14 border-b border-gray-100 shrink-0">
-    <img src="{{ asset('images/logo_dev.png') }}" alt="Logo" class="h-10 w-auto object-contain">
+<div class="flex items-center gap-3 px-5 h-14 border-b border-gray-100 shrink-0">
+    <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-white font-bold">P</span>
+    <span class="text-sm font-bold text-slate-900">Pump Monitoring</span>
 </div>
 
 {{-- ── Nav Items ────────────────────────────────────────────────── --}}
@@ -45,7 +46,7 @@
                      M3 14.5c0 2.485 4.03 4.5 9 4.5s9-2.015 9-4.5v3c0 2.485-4.03 4.5-9 4.5s-9-2.015-9-4.5v-3z
                      M12 12c-4.97 0-9-2.015-9-4.5S7.03 3 12 3s9 2.015 9 4.5-4.03 4.5-9 4.5z"/>
         </svg>
-        <span>Data Logger</span>
+        <span>Histori Sensor</span>
 
         @if(request()->routeIs('datalogger.*'))
             <span class="ml-auto w-1.5 h-1.5 rounded-full bg-blue-600"></span>
@@ -98,7 +99,7 @@
                      2-2 2 2 0 0 1-2 2zm6 0a2 2 0 1 1 2-2 2 2 0 0 1-2 2zM2 20v8h44v-8zm30 6a2 2 0 1 1 2-2
                      2 2 0 0 1-2 2zm6 0a2 2 0 1 1 2-2 2 2 0 0 1-2 2z"/>
         </svg>
-        <span>Devices</span>
+        <span>Gateway</span>
 
         @if(request()->routeIs('devices.*'))
             <span class="ml-auto w-1.5 h-1.5 rounded-full bg-blue-600"></span>

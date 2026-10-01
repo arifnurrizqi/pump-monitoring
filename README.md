@@ -1,21 +1,18 @@
-# Hydroflow System Monitoring
+# Pump Monitoring
 
 > **Penggunaan terbatas.** Hak atas bagian proprietary Hydroflow dimiliki Arnur Tech. Penerima wajib menjaga amanah penggunaan dan tidak menggandakan, memodifikasi, menyebarkan, atau menggunakannya untuk perangkat lain tanpa izin Arnur Tech. Lihat [Surat Pernyataan Amanah](legal/SURAT_PERNYATAAN_AMANAH_PENGGUNAAN_HYDROFLOW.md) dan [LICENSE.md](LICENSE.md).
 
-Hydroflow System Monitoring adalah dashboard IoT berbasis Laravel untuk memantau kualitas, level, dan aliran air. Aplikasi menyimpan data telemetry, mengevaluasi alarm, menyediakan data historis, serta mengirim perintah valve ke device melalui MQTT.
+Pump Monitoring adalah dashboard IoT berbasis Laravel untuk memantau gateway, pompa, power meter, dan sensor produksi dari jauh. Nilai MQTT tampil langsung melalui Reverb; histori disimpan per sumber data dan interval agar beban database tetap terkendali.
 
 ## Fitur
 
 - Dashboard status device: online, pending, dan offline.
-- Monitoring pH, turbidity, sample flow, level air, tegangan, dan kekuatan sinyal.
-- Penyimpanan histori pada `telemetry_raw` dan snapshot pada `telemetry_latest`.
-- Kalibrasi tinggi/volume tangki dan pulse per liter.
-- Alarm berdasarkan threshold dan tiga pembacaan anomali berturut-turut.
-- Datalogger raw, hourly, daily, monthly, dan yearly.
-- Filter berdasarkan device/tanggal serta export CSV.
+- Monitoring power meter 1/3 fasa, pressure, flow, temperatur, dan parameter sensor lainnya.
+- Penyimpanan histori pada `source_intervals` per sumber data dan interval.
+- Alarm minimum/maksimum parameter setelah tiga pembacaan anomali berturut-turut.
+- Data Logger interval dengan filter gateway, sumber, tanggal, dan ekspor CSV.
 - Berbagi akses device dengan role owner, operator, dan viewer.
-- Kontrol valve melalui MQTT beserta acknowledgement dari telemetry.
-- Dashboard dan detail device realtime melalui private WebSocket Laravel Reverb.
+- Dashboard dan detail gateway realtime melalui private WebSocket Laravel Reverb.
 
 ## Penerimaan telemetry melalui MQTT
 
@@ -49,6 +46,10 @@ Gateway tetap publish ke `devices/{device_sn}/telemetry` dengan QoS 1. Untuk sum
 
 Setiap pesan valid langsung memperbarui nilai di Redis dan mengirim event Reverb `parameters.updated` pada private channel `devices.{id}`. Dashboard detail menampilkan nilai terbaru tanpa menunggu database. Scheduler menyimpan satu baris `source_intervals` per sumber per interval (`MQTT_HISTORY_INTERVAL_SECONDS`, default 60 detik) dengan `sum`, `count`, `min`, `max`, nilai terakhir, dan kualitas untuk tiap parameter. Rata-rata historis dihitung dari `sum / count`. Alarm minimum/maksimum aktif setelah tiga pembacaan berkualitas baik berturut-turut di luar ambang; pembacaan baik yang pulih menyelesaikan alarm. Pesan schema lama tetap diproses melalui alur telemetry lama.
 
+UI utama berpusat pada pompa: dashboard menampilkan status gateway dan ringkasan parameter, detail gateway menyediakan pembacaan langsung serta tren parameter yang dapat dipilih, dan Data Logger membaca `source_intervals` dengan ekspor CSV. Tampilan tangki, pH, dan valve tidak digunakan di UI utama.
+
+### Payload lama (kompatibilitas backend)
+
 Jalankan migrasi terbaru, lalu jalankan `php artisan telemetry:subscribe` sebagai proses terpisah. Docker Compose menjalankannya melalui service `telemetry-subscriber`. Gateway mengirim JSON ke topic `devices/{device_sn}/telemetry` dengan QoS 1. Topic filter dan client ID subscriber dapat diatur lewat `MQTT_TELEMETRY_TOPIC` dan `MQTT_TELEMETRY_CLIENT_ID`.
 
 ```json
@@ -63,7 +64,7 @@ Jalankan migrasi terbaru, lalu jalankan `php artisan telemetry:subscribe` sebaga
 
 `device_sn` harus sama dengan serial pada topic dan sudah terdaftar. `message_id` wajib unik per device agar kiriman ulang tidak menggandakan telemetry atau total pulsa. Pesan retained diabaikan. Subscriber memvalidasi setiap pesan, memperbarui nilai terakhir di Redis, memeriksa alarm, lalu mengirim pembaruan Reverb. Data MQTT reguler dikumpulkan menjadi satu baris `telemetry_raw` per gateway per interval (default 60 detik). Baris ini berisi jumlah sampel, total pulsa, pemakaian, dan statistik min/maks/rata-rata di `raw_payload.metrics`. Pesan yang datang terlambat disimpan tersendiri dengan waktu pengukuran aslinya, lalu agregasi historis dihitung ulang melalui queue. Scheduler menjalankan `telemetry:flush-buckets` setiap menit untuk menutup interval meskipun gateway berhenti mengirim. Jalur HTTP lama masih menyimpan setiap pesan secara langsung.
 
-Redis menggunakan AOF dan volume persisten pada deployment Docker. Jalankan migrasi sebelum mengaktifkan subscriber baru. Konfigurasi parameter listrik, pressure, flow produksi, dan temperatur motor belum termasuk tahap ini.
+Redis menggunakan AOF dan volume persisten pada deployment Docker. Jalankan migrasi sebelum mengaktifkan subscriber baru.
 
 `MQTT_HISTORY_INTERVAL_SECONDS` mengatur ukuran interval histori, minimum 60 detik dan harus membagi satu jam tanpa sisa (misalnya 60, 120, atau 300). Nilai lain menggunakan 60 detik. `MQTT_LIVE_CACHE_STORE` harus menunjuk ke cache bersama yang mendukung lock; konfigurasi Docker menggunakan Redis. Jalankan satu subscriber aktif untuk client ID MQTT yang sama, dan pastikan scheduler serta queue worker berjalan. Hindari mengirim HTTP dan MQTT secara bersamaan untuk gateway yang sama selama migrasi.
 
@@ -973,22 +974,19 @@ Pastikan `php artisan schedule:run` dipanggil setiap menit oleh task scheduler p
 
 ### Dataset demo untuk dokumentasi
 
-Seeder demo menghasilkan tiga device dengan raw telemetry aktual dari waktu seed hingga maksimal 30 hari ke belakang. Data lama milik serial `DEMO-DEVICE-001` sampai `DEMO-DEVICE-003` dibersihkan sebelum dibuat ulang sehingga command aman dijalankan berulang.
+Seeder default menghasilkan tiga gateway pompa dengan histori interval relatif terhadap waktu seed. Serialnya `DEMO-PUMP-001` sampai `DEMO-PUMP-003`; interval demo untuk gateway tersebut dibuat ulang saat seeder dijalankan ulang.
 
 Dataset mencakup:
 
-- Data per jam untuk histori 30 hari.
-- Data per 30 menit untuk tujuh jam terakhir.
-- Data per menit untuk satu jam terakhir.
-- pH, turbidity, sample flow, level, tegangan, sinyal, pulse, volume penggunaan, dan state valve.
-- Pola penggunaan air berdasarkan jam sibuk, malam hari, dan akhir pekan agar bar chart mudah dibaca.
-- `telemetry_latest` dan agregasi hourly, daily, monthly, serta yearly.
-- Device normal, device bermasalah, device campuran, serta alarm aktif/resolved.
+- Pompa 1 fasa dan 3 fasa pada tiga lokasi produksi.
+- Power meter, temperatur motor, tekanan, dan debit.
+- Enam puluh interval histori per sumber untuk tren dan Data Logger.
+- Gateway online, terlambat, offline, dan satu contoh alarm temperatur.
 
 Untuk membuat ulang dataset berdasarkan waktu sekarang:
 
 ```bash
-php artisan db:seed --class=DemoDataSeeder
+php artisan db:seed --class=PumpDemoSeeder
 ```
 
 Jika database masih kosong, jalankan seluruh seeder agar akun demo ikut dibuat:
@@ -997,7 +995,7 @@ Jika database masih kosong, jalankan seluruh seeder agar akun demo ikut dibuat:
 php artisan db:seed
 ```
 
-Akun demo menggunakan `owner@example.com` atau `editor@example.com` dengan password `password`. Akun editor mendapat role operator pada Demo Water Tank A.
+Akun demo menggunakan `owner@example.com` atau `editor@example.com` dengan password `password`. Akun editor mendapat role operator pada Pompa Sumur Utara.
 
 ```bash
 composer test

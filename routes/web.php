@@ -3,9 +3,7 @@
 use App\Http\Controllers\AlarmController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DataloggerController;
-use App\Http\Controllers\DeviceCommandController;
 use App\Http\Controllers\DeviceController;
-use App\Http\Controllers\DeviceSettingController;
 use App\Http\Controllers\MonitoringConfigurationController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SystemMqttSettingController;
@@ -22,6 +20,7 @@ Route::middleware(['auth'])->group(function () {
     Route::resource('devices', DeviceController::class);
 
     Route::get('/devices/{device}/monitoring', [MonitoringConfigurationController::class, 'index'])->name('devices.monitoring.index');
+    Route::patch('/devices/{device}/monitoring/gateway', [MonitoringConfigurationController::class, 'gateway'])->name('devices.monitoring.gateway');
     Route::post('/devices/{device}/monitoring/site', [MonitoringConfigurationController::class, 'site'])->name('devices.monitoring.site');
     Route::post('/devices/{device}/monitoring/assets', [MonitoringConfigurationController::class, 'asset'])->name('devices.monitoring.asset');
     Route::post('/devices/{device}/monitoring/sources', [MonitoringConfigurationController::class, 'source'])->name('devices.monitoring.source');
@@ -32,16 +31,8 @@ Route::middleware(['auth'])->group(function () {
     Route::patch('/devices/{device}/access/{user}', [DeviceController::class, 'updateAccess'])->name('devices.access.update');
     Route::delete('/devices/{device}/access/{user}', [DeviceController::class, 'removeAccess'])->name('devices.access.remove');
 
-    Route::post('/devices/{device}/valve', [DeviceCommandController::class, 'storeValveCommand'])
-        ->name('devices.valve.store');
-    Route::get('/devices/{device}/valve/commands/{command}', [DeviceCommandController::class, 'showValveCommand'])
-        ->name('devices.valve.commands.show');
-
-    Route::get('/devices/{device}/settings/edit', [DeviceSettingController::class, 'edit'])
+    Route::get('/devices/{device}/settings/edit', [MonitoringConfigurationController::class, 'index'])
         ->name('devices.settings.edit');
-
-    Route::put('/devices/{device}/settings', [DeviceSettingController::class, 'update'])
-        ->name('devices.settings.update');
 
     Route::get('/alarms', [AlarmController::class, 'index'])->name('alarms.index');
     Route::patch('/alarms/{alarm}/acknowledge', [AlarmController::class, 'acknowledge'])->name('alarms.ack');

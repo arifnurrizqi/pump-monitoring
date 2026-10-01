@@ -13,6 +13,16 @@
                 @foreach($errors->all() as $error)<p>{{ $error }}</p>@endforeach
             </div>
         @endif
+        @if(session('success'))<div class="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700">{{ session('success') }}</div>@endif
+
+        @if($canEdit)
+        <form method="POST" action="{{ route('devices.monitoring.gateway', $device) }}" class="flex flex-wrap items-end gap-3 rounded-2xl border bg-white p-5">
+            @csrf @method('PATCH')
+            <label class="text-sm font-medium text-gray-700">Interval kirim gateway (detik)<input type="number" name="send_interval_sec" min="1" max="3600" required value="{{ old('send_interval_sec', $device->setting?->send_interval_sec ?? 10) }}" class="mt-1 block w-40 rounded-lg border-gray-300 text-sm"></label>
+            <button class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white">Simpan interval</button>
+            <p class="w-full text-xs text-gray-500">Dipakai untuk menentukan kapan gateway dianggap terlambat atau offline.</p>
+        </form>
+        @endif
 
         @if(!$device->site && $canEdit)
             @if($availableSites->isNotEmpty())
@@ -78,7 +88,7 @@
             <div class="bg-white rounded-2xl border p-5 space-y-4">
                 <div>
                     <h2 class="font-semibold">{{ $source->name }} <span class="text-sm font-normal text-gray-500">{{ $source->source_key }}</span></h2>
-                    <p class="text-xs text-gray-500">{{ $source->asset?->name ?? 'Tanpa aset' }} · {{ $source->type }}</p>
+                    <p class="text-xs text-gray-500">{{ $source->asset?->name ?? 'Tanpa aset' }} · {{ match($source->type) { 'power_meter' => 'Power meter', 'temperature' => 'Temperatur', 'pressure' => 'Tekanan', 'flow' => 'Debit', default => 'Sensor lain' } }}</p>
                 </div>
                 <div class="overflow-x-auto">
                     <table class="w-full text-sm"><thead><tr class="text-left text-gray-500"><th class="p-2">Parameter</th><th class="p-2">Satuan</th><th class="p-2">Alarm minimum</th><th class="p-2">Alarm maksimum</th><th class="p-2">Aktif</th><th class="p-2"></th></tr></thead>

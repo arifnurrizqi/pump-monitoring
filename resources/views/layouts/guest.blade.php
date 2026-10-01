@@ -5,7 +5,7 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="csrf-token" content="{{ csrf_token() }}">
 
-        <title>{{ config('app.name', 'Laravel') }}</title>
+        <title>Pump Monitoring</title>
 
         <!-- Fonts -->
         <link rel="preconnect" href="https://fonts.bunny.net">
@@ -16,9 +16,9 @@
     </head>
     <body class="font-sans text-gray-900 antialiased bg-white">
         <div class="min-h-screen flex flex-col sm:justify-center items-center pt-6 sm:pt-0 bg-white">
-            <div class="h-28 flex items-center justify-center">
+            <div class="h-24 flex items-center justify-center">
                 <a href="/">
-                    <img src="{{ asset('images/hsm x ppa.png') }}" alt="Logo" class="h-24 w-auto object-contain">
+                    <span class="inline-flex items-center gap-3 text-xl font-bold text-slate-900"><span class="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600 text-white">P</span>Pump Monitoring</span>
                 </a>
             </div>
 

@@ -108,10 +108,7 @@ class Device extends Model
 
     public function getConnectionStatusAttribute(): string
     {
-        $last_seen_at = $this->latestData?->last_seen_at;
-        if ($this->last_seen_at && (! $last_seen_at || $this->last_seen_at->greaterThan($last_seen_at))) {
-            $last_seen_at = $this->last_seen_at;
-        }
+        $last_seen_at = $this->last_seen_at;
 
         if (! $last_seen_at) {
             return 'offline';

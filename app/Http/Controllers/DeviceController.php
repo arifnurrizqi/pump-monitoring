@@ -6,7 +6,6 @@ use App\Http\Requests\StoreDeviceRequest;
 use App\Http\Requests\UpdateDeviceRequest;
 use App\Models\Device;
 use App\Models\User;
-use App\Services\LiveTelemetryState;
 use App\Services\SourceLiveState;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -15,22 +14,18 @@ use Illuminate\View\View;
 
 class DeviceController extends Controller
 {
-    public function __construct(
-        private readonly LiveTelemetryState $liveState,
-        private readonly SourceLiveState $sourceLiveState,
-    ) {}
+    public function __construct(private readonly SourceLiveState $sourceLiveState) {}
 
     public function index(): View
     {
         $devices = auth()->user()
             ->devices()
-            ->with(['setting', 'latestData'])
+            ->with(['setting', 'site', 'activeAlarms'])
             ->withCount('sources')
             ->latest('devices.created_at')
             ->paginate(5);
 
         $devices->getCollection()->each(function (Device $device): void {
-            $this->liveState->apply($device);
             $this->sourceLiveState->applyConnection($device);
         });
 
@@ -115,202 +110,54 @@ class DeviceController extends Controller
             ]
         );
 
-        $backUrl = session('device_create_back_url', route('devices.index'));
         session()->forget('device_create_back_url');
 
         return redirect()
-            ->to($backUrl)
-            ->with('success', 'Device berhasil ditambahkan.');
+            ->route('devices.monitoring.index', $device)
+            ->with('success', 'Gateway ditambahkan. Atur lokasi produksi dan sumber datanya.');
     }
 
     public function show(Device $device): View
     {
         $this->authorizeDeviceAccess($device);
 
-        $referer = request()->headers->get('referer');
-        if ($referer && parse_url($referer, PHP_URL_HOST) === request()->getHost()) {
-            $path = parse_url($referer, PHP_URL_PATH);
-            if (in_array($path, ['/dashboard', '/devices', '/alarms', '/datalogger'])) {
-                $query = parse_url($referer, PHP_URL_QUERY);
-                $refererUrl = $path.($query ? '?'.$query : '');
-                session(['device_detail_back_url_'.$device->id => $refererUrl]);
-            }
-        }
-        $backUrl = session('device_detail_back_url_'.$device->id, route('devices.index'));
-
         $device->load([
-            'setting',
-            'site',
-            'sources.asset',
-            'sources.parameters',
-            'latestTelemetry',
-            'latestData',
-            'activeAlarms',
-            'users',
+            'site', 'setting', 'sources.asset', 'sources.parameters',
+            'activeAlarms', 'users',
         ]);
-        $liveState = $this->liveState->apply($device);
         $sourceReadings = $this->sourceLiveState->forDevice($device);
         $sourceHistory = [];
         foreach ($device->sources as $source) {
             $sourceHistory[$source->id] = $source->intervals()
-                ->latest('bucket_start')->limit(10)->get();
+                ->latest('bucket_start')->limit(60)->get()->reverse()->values();
         }
+        $sourceCharts = [];
+        foreach ($device->sources as $source) {
+            $sourceCharts[$source->id] = [
+                'name' => $source->name,
+                'parameters' => $source->parameters->map(fn ($parameter) => [
+                    'key' => $parameter->key,
+                    'label' => $parameter->label,
+                    'unit' => $parameter->unit,
+                    'min' => $parameter->alarm_min,
+                    'max' => $parameter->alarm_max,
+                ])->values(),
+                'points' => $sourceHistory[$source->id]->map(function ($interval) {
+                    $values = [];
+                    foreach ($interval->metrics as $key => $metric) {
+                        $values[$key] = ($metric['count'] ?? 0) > 0
+                            ? round($metric['sum'] / $metric['count'], 3) : null;
+                    }
 
+                    return ['time' => $interval->bucket_start->toIso8601String(), 'values' => $values];
+                })->values(),
+            ];
+        }
         $myRole = $this->getUserDeviceRole($device);
-
-        $usageTodayLiter = (float) $device->telemetryRaw()
-            ->whereBetween('recorded_at', [now()->startOfDay(), now()])
-            ->sum('usage_liter');
-        $usageThisMonthLiter = (float) $device->telemetryRaw()
-            ->whereBetween('recorded_at', [now()->startOfMonth(), now()])
-            ->sum('usage_liter');
-        if ($liveState) {
-            $usageTodayLiter = $this->liveState->usage($liveState, 'day') ?? $usageTodayLiter;
-            $usageThisMonthLiter = $this->liveState->usage($liveState, 'month') ?? $usageThisMonthLiter;
-        }
-
-        // ── Chart data ────────────────────────────────────────────
-        // 1 H  → raw telemetry for the last 1 hour
-        $raw1h = $device->telemetryRaw()
-            ->where('recorded_at', '>=', now()->subHours(1))
-            ->orderBy('recorded_at')
-            ->get(['recorded_at', 'ph', 'turbidity', 'level_percent', 'usage_liter']);
-
-        // 7 H  → raw telemetry for the last 7 hours
-        $raw7h = $device->telemetryRaw()
-            ->where('recorded_at', '>=', now()->subHours(7))
-            ->orderBy('recorded_at')
-            ->get(['recorded_at', 'ph', 'turbidity', 'level_percent']);
-
-        // 24 H  → hourly aggregates for the last 24 hours
-        $hourly24h = $device->telemetryHourly()
-            ->where('period_start', '>=', now()->subHours(24)->startOfHour())
-            ->orderBy('period_start')
-            ->get(['period_start', 'avg_ph', 'avg_turbidity', 'avg_level_percent', 'usage_liter']);
-
-        // 7 D  → daily aggregates for the last 7 days
-        $daily7d = $device->telemetryDaily()
-            ->where('period_start', '>=', now()->subDays(7)->startOfDay())
-            ->orderBy('period_start')
-            ->get(['period_start', 'avg_ph', 'avg_turbidity', 'avg_level_percent', 'usage_liter']);
-
-        // 30 D → daily aggregates for the last 30 days
-        $daily30d = $device->telemetryDaily()
-            ->where('period_start', '>=', now()->subDays(30)->startOfDay())
-            ->orderBy('period_start')
-            ->get(['period_start', 'avg_ph', 'avg_turbidity', 'avg_level_percent', 'usage_liter']);
-
-        $mapRaw1h = fn ($r) => [
-            'label' => $r->recorded_at->format('H:i:s'),
-            'ph' => $r->ph !== null ? round((float) $r->ph, 2) : null,
-            'turbidity' => $r->turbidity !== null ? round((float) $r->turbidity, 2) : null,
-            'level' => $r->level_percent !== null ? round((float) $r->level_percent, 1) : null,
-        ];
-
-        $mapRaw7h = fn ($r) => [
-            'label' => $r->recorded_at->format('H:i'),
-            'ph' => $r->ph !== null ? round((float) $r->ph, 2) : null,
-            'turbidity' => $r->turbidity !== null ? round((float) $r->turbidity, 2) : null,
-            'level' => $r->level_percent !== null ? round((float) $r->level_percent, 1) : null,
-        ];
-
-        $mapHourly = fn ($r) => [
-            'label' => $r->period_start->format('H:i'),
-            'ph' => round((float) $r->avg_ph, 2),
-            'turbidity' => round((float) $r->avg_turbidity, 2),
-            'level' => round((float) $r->avg_level_percent, 1),
-        ];
-
-        $mapDaily = fn ($r) => [
-            'label' => $r->period_start->format('d M'),
-            'ph' => round((float) $r->avg_ph, 2),
-            'turbidity' => round((float) $r->avg_turbidity, 2),
-            'level' => round((float) $r->avg_level_percent, 1),
-        ];
-
-        $usage1h = $raw1h
-            ->groupBy(function ($row) {
-                $bucket = $row->recorded_at->copy()->startOfMinute();
-                $bucket->subMinutes($bucket->minute % 5);
-
-                return $bucket->timestamp;
-            })
-            ->map(function ($rows) {
-                $bucket = $rows->first()->recorded_at->copy()->startOfMinute();
-                $bucket->subMinutes($bucket->minute % 5);
-
-                return [
-                    'label' => $bucket->format('H:i'),
-                    'usage' => round((float) $rows->sum('usage_liter'), 6),
-                ];
-            })
-            ->values();
-
-        $currentHourStart = now()->startOfHour();
-        $currentHourUsage = round((float) $raw1h
-            ->filter(fn ($row) => $row->recorded_at->gte($currentHourStart))
-            ->sum('usage_liter'), 6);
-
-        $hourlyUsage = function ($since) use ($hourly24h, $currentHourStart, $currentHourUsage) {
-            return $hourly24h
-                ->filter(fn ($row) => $row->period_start->gte($since) && $row->period_start->lt($currentHourStart))
-                ->map(fn ($row) => [
-                    'label' => $row->period_start->format('H:i'),
-                    'usage' => round((float) $row->usage_liter, 6),
-                ])
-                ->values()
-                ->push([
-                    'label' => $currentHourStart->format('H:i'),
-                    'usage' => $currentHourUsage,
-                ]);
-        };
-
-        $currentDayStart = now()->startOfDay();
-        $dailyUsage = function ($rows, $since) use ($currentDayStart, $usageTodayLiter) {
-            return $rows
-                ->filter(fn ($row) => $row->period_start->gte($since) && $row->period_start->lt($currentDayStart))
-                ->map(fn ($row) => [
-                    'label' => $row->period_start->format('d M'),
-                    'usage' => round((float) $row->usage_liter, 6),
-                ])
-                ->values()
-                ->push([
-                    'label' => $currentDayStart->format('d M'),
-                    'usage' => round($usageTodayLiter, 6),
-                ]);
-        };
-
-        $chartData = [
-            '1h' => $raw1h->map($mapRaw1h)->values(),
-            '7h' => $raw7h->map($mapRaw7h)->values(),
-            '24h' => $hourly24h->map($mapHourly)->values(),
-            '7d' => $daily7d->map($mapDaily)->values(),
-            '30d' => $daily30d->map($mapDaily)->values(),
-            'usage' => [
-                '1h' => $usage1h,
-                '7h' => $hourlyUsage(now()->subHours(7)->startOfHour()),
-                '24h' => $hourlyUsage(now()->subHours(24)->startOfHour()),
-                '7d' => $dailyUsage($daily7d, now()->subDays(7)->startOfDay()),
-                '30d' => $dailyUsage($daily30d, now()->subDays(30)->startOfDay()),
-            ],
-            'thresholds' => [
-                'ph_min' => $device->setting?->ph_min !== null ? round((float) $device->setting->ph_min, 2) : null,
-                'ph_max' => $device->setting?->ph_max !== null ? round((float) $device->setting->ph_max, 2) : null,
-                'turbidity_max' => $device->setting?->turbidity_max !== null ? round((float) $device->setting->turbidity_max, 2) : null,
-                'level_min' => $device->setting?->level_min_percent !== null ? round((float) $device->setting->level_min_percent, 1) : null,
-                'level_max' => $device->setting?->level_max_percent !== null ? round((float) $device->setting->level_max_percent, 1) : null,
-            ],
-        ];
+        $backUrl = route('devices.index');
 
         return view('devices.show', compact(
-            'device',
-            'myRole',
-            'chartData',
-            'backUrl',
-            'usageTodayLiter',
-            'usageThisMonthLiter',
-            'sourceReadings',
-            'sourceHistory',
+            'device', 'myRole', 'backUrl', 'sourceReadings', 'sourceHistory', 'sourceCharts',
         ));
     }
 
@@ -507,3 +354,4 @@ class DeviceController extends Controller
         return back()->with('success', 'Akses user berhasil dihapus.');
     }
 }
+
