@@ -67,17 +67,30 @@
                 @endforeach
             </div>
 
-            <section class="rounded-2xl border border-slate-200 bg-white shadow-sm">
-                <div class="flex flex-col gap-3 border-b border-slate-100 px-5 py-4 sm:flex-row sm:items-end sm:justify-between">
-                    <div><h2 class="font-semibold text-slate-900">Tren parameter</h2><p class="mt-0.5 text-xs text-slate-500">Histori rata-rata per interval, dilanjutkan titik live selama halaman terbuka.</p></div>
-                    <div class="flex flex-wrap gap-2">
-                        <select id="trend-source" aria-label="Sumber data tren" class="rounded-lg border-slate-200 text-sm">
-                            @foreach($device->sources as $source)<option value="{{ $source->id }}">{{ $source->name }}</option>@endforeach
-                        </select>
-                        <select id="trend-parameter" aria-label="Parameter tren" class="rounded-lg border-slate-200 text-sm"></select>
+            <section class="space-y-4" data-chart-dashboard data-chart-url="{{ route('devices.charts', $device) }}">
+                <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+                    <div><h2 class="text-base font-semibold text-slate-900">Tren parameter</h2><p class="mt-0.5 text-xs text-slate-500">Rata-rata histori per interval; pembacaan MQTT baru tampil langsung.</p></div>
+                    <div class="flex flex-wrap gap-1 rounded-xl border border-slate-200 bg-white p-1" role="group" aria-label="Rentang waktu grafik">
+                        @foreach(['1h' => '1 jam', '12h' => '12 jam', '1d' => '1 hari', '7d' => '7 hari', '1mo' => '1 bulan'] as $range => $label)
+                            <button type="button" data-chart-range="{{ $range }}" aria-pressed="{{ $range === '1h' ? 'true' : 'false' }}" class="rounded-lg px-3 py-1.5 text-xs font-semibold {{ $range === '1h' ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-100' }}">{{ $label }}</button>
+                        @endforeach
                     </div>
                 </div>
-                <div class="p-5"><div class="h-64 sm:h-80"><canvas id="source-trend-chart"></canvas></div><p id="trend-empty" class="hidden py-12 text-center text-sm text-slate-500">Belum ada histori untuk parameter ini.</p></div>
+                @if(count($chartGroups))
+                    <div class="grid gap-4 xl:grid-cols-2">
+                        @foreach($chartGroups as $group)
+                            <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm" data-chart-group="{{ $group['key'] }}">
+                                <h3 class="font-semibold text-slate-900">{{ $group['title'] }}</h3>
+                                <p class="mt-0.5 text-xs text-slate-500">{{ count($group['series']) }} parameter</p>
+                                <div class="mt-4 h-64"><canvas aria-label="Grafik {{ $group['title'] }}" role="img"></canvas></div>
+                                <p data-chart-empty class="hidden py-4 text-sm text-slate-500">Belum ada data pada rentang ini.</p>
+                            </div>
+                        @endforeach
+                    </div>
+                @else
+                    <div class="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-500">Belum ada parameter yang dipilih untuk grafik. Atur grup grafik di pengaturan monitoring.</div>
+                @endif
+                <p data-chart-error class="hidden text-sm text-red-600">Histori grafik gagal dimuat. Coba pilih rentang waktu lagi.</p>
             </section>
 
             <section class="rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -131,6 +144,6 @@
         </section>
     </div>
 
-    <script>window.__PUMP_SOURCE_CHARTS__ = @json($sourceCharts);</script>
+    <script>window.__PUMP_CHART_GROUPS__ = @json(array_values($chartGroups));</script>
     @push('scripts') @vite('resources/js/pump-detail.js') @endpush
 </x-app-layout>

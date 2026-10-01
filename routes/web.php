@@ -18,6 +18,7 @@ Route::middleware(['auth'])->group(function () {
         ->name('dashboard');
 
     Route::resource('devices', DeviceController::class);
+    Route::get('/devices/{device}/charts', [DeviceController::class, 'charts'])->name('devices.charts');
 
     Route::get('/devices/{device}/monitoring', [MonitoringConfigurationController::class, 'index'])->name('devices.monitoring.index');
     Route::patch('/devices/{device}/monitoring/gateway', [MonitoringConfigurationController::class, 'gateway'])->name('devices.monitoring.gateway');

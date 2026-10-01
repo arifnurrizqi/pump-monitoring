@@ -9,7 +9,7 @@ class SourceParameter extends Model
 {
     protected $fillable = [
         'data_source_id', 'key', 'label', 'unit', 'alarm_min',
-        'alarm_max', 'alarm_enabled', 'sort_order',
+        'alarm_max', 'alarm_enabled', 'sort_order', 'chart_group',
     ];
 
     protected $casts = [

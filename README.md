@@ -27,7 +27,7 @@ Contoh payload gateway:
 
 ## Menjalankan secara lokal
 
-Kebutuhan: PHP 8.3+, ekstensi `pdo_pgsql`, Composer, Node.js, PostgreSQL, Redis, broker MQTT, dan Reverb.
+Kebutuhan: PHP 8.3+, ekstensi `pdo_pgsql`, Composer, Node.js, PostgreSQL, dan broker MQTT. Reverb dijalankan sebagai proses Laravel; Redis diperlukan hanya bila memilih cache Redis.
 
 1. Buat database PostgreSQL `pump_monitoring` dan salin `.env.example` ke `.env`.
 2. Isi `DB_*`, `MQTT_*`, `REDIS_*`, dan `REVERB_*` sesuai lingkungan lokal.
@@ -43,6 +43,27 @@ php artisan serve
 ```
 
 Jalankan `php artisan telemetry:subscribe`, `php artisan schedule:work`, dan `php artisan reverb:start` pada proses terpisah. `php artisan db:seed` membuat contoh lokasi, gateway, pompa satu/tiga fasa, parameter, dan histori.
+
+`PumpDemoSeeder` mengisi histori 30 hari untuk tiga gateway demo: sumur utara yang stabil, sumur selatan dengan tren motor memanas dan debit menurun, serta booster dengan siklus hidup-mati. Sampel demo dibuat lebih rapat mendekati waktu sekarang (30 menit, 10 menit, 2 menit, lalu 1 menit) agar seluruh rentang grafik tetap informatif tanpa mengisi 30 hari data per menit. Untuk memperbarui hanya data demo, jalankan `php artisan db:seed --class=PumpDemoSeeder`; perintah ini mengganti histori sumber `PM-01` dan `MOTOR-01` pada tiga gateway `DEMO-PUMP-*`.
+
+### PostgreSQL di Docker, aplikasi di Laragon
+
+Gunakan [`docker-compose.database.yml`](docker-compose.database.yml) jika hanya database yang ingin dijalankan lewat Docker. Salin `.env.example` menjadi `.env` dan isi `DB_PASSWORD` dengan password lokal yang kuat. File Compose khusus ini membaca `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD`, dan `DB_PORT` dari `.env`; PostgreSQL hanya terbuka pada `127.0.0.1:5432`. Gunakan `DB_HOST=127.0.0.1` pada Laravel, bukan hostname `postgres` milik jaringan Docker.
+
+Compose khusus database memakai volume sendiri, terpisah dari `postgres_data` pada stack Docker lengkap. Data di kedua volume tidak berpindah otomatis.
+
+Contoh `.env.example` sudah memakai `MQTT_LIVE_CACHE_STORE=file`, `CACHE_STORE=file`, dan `REVERB_PUBLIC_PORT=8081` agar PHP Laragon tidak memerlukan ekstensi Redis dan browser terhubung langsung ke Reverb lokal. Cache file dibagi oleh proses PHP pada direktori proyek yang sama. Sesuaikan `APP_URL`, `REVERB_ALLOWED_ORIGINS`, dan `MQTT_HOST` dengan alamat situs Laragon serta broker MQTT yang benar; Laragon tidak menyediakan broker MQTT secara otomatis.
+
+Di PowerShell pada folder proyek:
+
+```powershell
+Copy-Item .env.example .env
+# Isi DB_PASSWORD dan nilai lokal lain di .env sebelum menjalankan perintah berikut.
+docker compose --env-file .env -f docker-compose.database.yml up -d
+docker compose --env-file .env -f docker-compose.database.yml ps
+```
+
+Di terminal Laragon, jalankan `composer install`, `php artisan key:generate`, `php artisan migrate`, `npm install`, dan `npm run build`. Buka situs lewat virtual host Laragon, atau jalankan `php artisan serve` jika belum mengaktifkan virtual host. Untuk telemetry realtime, jalankan `php artisan telemetry:subscribe`, `php artisan schedule:work`, dan `php artisan reverb:start` di terminal terpisah. Untuk menghentikan database tanpa menghapus datanya, jalankan `docker compose --env-file .env -f docker-compose.database.yml down`.
 
 Tes otomatis memakai database PostgreSQL `pump_monitoring_test` yang harus dibuat terlebih dahulu. Jalankan `composer test` hanya dengan database khusus tes karena `RefreshDatabase` membuat ulang tabel.
 

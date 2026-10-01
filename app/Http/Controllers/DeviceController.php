@@ -7,13 +7,18 @@ use App\Http\Requests\UpdateDeviceRequest;
 use App\Models\Device;
 use App\Models\User;
 use App\Services\SourceLiveState;
+use App\Services\DeviceChartService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 class DeviceController extends Controller
 {
-    public function __construct(private readonly SourceLiveState $sourceLiveState) {}
+    public function __construct(
+        private readonly SourceLiveState $sourceLiveState,
+        private readonly DeviceChartService $deviceCharts,
+    ) {}
 
     public function index(): View
     {
@@ -126,34 +131,27 @@ class DeviceController extends Controller
             $sourceHistory[$source->id] = $source->intervals()
                 ->latest('bucket_start')->limit(60)->get()->reverse()->values();
         }
-        $sourceCharts = [];
-        foreach ($device->sources as $source) {
-            $sourceCharts[$source->id] = [
-                'name' => $source->name,
-                'parameters' => $source->parameters->map(fn ($parameter) => [
-                    'key' => $parameter->key,
-                    'label' => $parameter->label,
-                    'unit' => $parameter->unit,
-                    'min' => $parameter->alarm_min,
-                    'max' => $parameter->alarm_max,
-                ])->values(),
-                'points' => $sourceHistory[$source->id]->map(function ($interval) {
-                    $values = [];
-                    foreach ($interval->metrics as $key => $metric) {
-                        $values[$key] = ($metric['count'] ?? 0) > 0
-                            ? round($metric['sum'] / $metric['count'], 3) : null;
-                    }
-
-                    return ['time' => $interval->bucket_start->toIso8601String(), 'values' => $values];
-                })->values(),
-            ];
-        }
+        $chartGroups = $this->deviceCharts->groups($device);
         $myRole = $this->getUserDeviceRole($device);
         $backUrl = route('devices.index');
 
         return view('devices.show', compact(
-            'device', 'myRole', 'backUrl', 'sourceReadings', 'sourceHistory', 'sourceCharts',
+            'device', 'myRole', 'backUrl', 'sourceReadings', 'sourceHistory', 'chartGroups',
         ));
+    }
+
+    public function charts(Request $request, Device $device): JsonResponse
+    {
+        $this->authorizeDeviceAccess($device);
+        $range = $request->validate([
+            'range' => ['sometimes', 'in:1h,12h,1d,7d,1mo'],
+        ])['range'] ?? '1h';
+        $device->load('sources.parameters');
+
+        return response()->json([
+            'range' => $range,
+            'groups' => $this->deviceCharts->history($device, $range),
+        ]);
     }
 
     public function edit(Device $device): View

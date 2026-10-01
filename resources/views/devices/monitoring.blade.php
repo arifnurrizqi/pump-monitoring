@@ -84,6 +84,7 @@
         </form>
         @endif
 
+        <datalist id="chart-groups"><option value="tegangan"><option value="temperatur"><option value="tekanan"><option value="debit"></datalist>
         @foreach($device->sources as $source)
             <div class="bg-white rounded-2xl border p-5 space-y-4">
                 <div>
@@ -91,35 +92,38 @@
                     <p class="text-xs text-gray-500">{{ $source->asset?->name ?? 'Tanpa aset' }} · {{ match($source->type) { 'power_meter' => 'Power meter', 'temperature' => 'Temperatur', 'pressure' => 'Tekanan', 'flow' => 'Debit', default => 'Sensor lain' } }}</p>
                 </div>
                 <div class="overflow-x-auto">
-                    <table class="w-full text-sm"><thead><tr class="text-left text-gray-500"><th class="p-2">Parameter</th><th class="p-2">Satuan</th><th class="p-2">Alarm minimum</th><th class="p-2">Alarm maksimum</th><th class="p-2">Aktif</th><th class="p-2"></th></tr></thead>
+                    <table class="w-full text-sm"><thead><tr class="text-left text-gray-500"><th class="p-2">Parameter</th><th class="p-2">Satuan</th><th class="p-2">Grup grafik</th><th class="p-2">Alarm minimum</th><th class="p-2">Alarm maksimum</th><th class="p-2">Aktif</th><th class="p-2"></th></tr></thead>
                         <tbody>
                         @foreach($source->parameters as $parameter)
                             @if($canEdit)
                             <tr class="border-t">
                                 <td class="p-2"><form id="parameter-{{ $parameter->id }}" method="POST" action="{{ route('devices.monitoring.parameter.update', [$device, $source, $parameter]) }}">@csrf @method('PATCH')<input name="label" value="{{ $parameter->label }}" required class="w-40 rounded-lg border-gray-300 text-sm"></form><span class="block text-xs text-gray-400">{{ $parameter->key }}</span></td>
                                 <td class="p-2"><input form="parameter-{{ $parameter->id }}" name="unit" value="{{ $parameter->unit }}" class="w-20 rounded-lg border-gray-300 text-sm"></td>
+                                <td class="p-2"><input form="parameter-{{ $parameter->id }}" name="chart_group" value="{{ $parameter->chart_group }}" list="chart-groups" placeholder="Kosong = sembunyi" class="w-36 rounded-lg border-gray-300 text-sm"></td>
                                 <td class="p-2"><input form="parameter-{{ $parameter->id }}" name="alarm_min" type="number" step="any" value="{{ $parameter->alarm_min }}" class="w-28 rounded-lg border-gray-300 text-sm"></td>
                                 <td class="p-2"><input form="parameter-{{ $parameter->id }}" name="alarm_max" type="number" step="any" value="{{ $parameter->alarm_max }}" class="w-28 rounded-lg border-gray-300 text-sm"></td>
                                 <td class="p-2"><input form="parameter-{{ $parameter->id }}" type="checkbox" name="alarm_enabled" value="1" @checked($parameter->alarm_enabled)></td>
                                 <td class="p-2"><button form="parameter-{{ $parameter->id }}" class="text-blue-600">Simpan</button></td>
                             </tr>
                             @else
-                            <tr class="border-t"><td class="p-2">{{ $parameter->label }} <span class="text-xs text-gray-400">{{ $parameter->key }}</span></td><td class="p-2">{{ $parameter->unit }}</td><td class="p-2">{{ $parameter->alarm_min ?? '—' }}</td><td class="p-2">{{ $parameter->alarm_max ?? '—' }}</td><td class="p-2">{{ $parameter->alarm_enabled ? 'Ya' : 'Tidak' }}</td><td></td></tr>
+                            <tr class="border-t"><td class="p-2">{{ $parameter->label }} <span class="text-xs text-gray-400">{{ $parameter->key }}</span></td><td class="p-2">{{ $parameter->unit }}</td><td class="p-2">{{ $parameter->chart_group ?? 'Tidak ditampilkan' }}</td><td class="p-2">{{ $parameter->alarm_min ?? '—' }}</td><td class="p-2">{{ $parameter->alarm_max ?? '—' }}</td><td class="p-2">{{ $parameter->alarm_enabled ? 'Ya' : 'Tidak' }}</td><td></td></tr>
                             @endif
                         @endforeach
                         </tbody>
                     </table>
                 </div>
                 @if($canEdit)
-                <form method="POST" action="{{ route('devices.monitoring.parameter', [$device, $source]) }}" class="grid sm:grid-cols-6 gap-2 items-end border-t pt-4">
+                <p class="border-t pt-4 text-xs text-slate-500">Isi grup grafik yang sama untuk menampilkan beberapa parameter bersatuan sama sebagai garis dalam satu grafik. Contoh: tegangan, temperatur, tekanan, debit. Kosongkan untuk menyembunyikan parameter dari grafik.</p>
+                <form method="POST" action="{{ route('devices.monitoring.parameter', [$device, $source]) }}" class="grid sm:grid-cols-7 gap-2 items-end pt-2">
                     @csrf
                     <input name="key" required placeholder="Kunci, contoh motor_temp" class="rounded-lg border-gray-300 text-sm">
                     <input name="label" required placeholder="Label" class="rounded-lg border-gray-300 text-sm">
                     <input name="unit" placeholder="Satuan" class="rounded-lg border-gray-300 text-sm">
+                    <input name="chart_group" list="chart-groups" placeholder="Grup grafik (opsional)" class="rounded-lg border-gray-300 text-sm">
                     <input name="alarm_min" type="number" step="any" placeholder="Min" class="rounded-lg border-gray-300 text-sm">
                     <input name="alarm_max" type="number" step="any" placeholder="Max" class="rounded-lg border-gray-300 text-sm">
                     <label class="text-xs flex items-center gap-2"><input type="checkbox" name="alarm_enabled" value="1"> Alarm aktif</label>
-                    <button class="sm:col-span-6 justify-self-start px-4 py-2 bg-gray-800 text-white rounded-lg text-sm">Tambah parameter</button>
+                    <button class="sm:col-span-7 justify-self-start px-4 py-2 bg-gray-800 text-white rounded-lg text-sm">Tambah parameter</button>
                 </form>
                 @endif
             </div>

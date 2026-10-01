@@ -90,7 +90,10 @@ class MonitoringConfigurationController extends Controller
         if ($source->type === 'power_meter') {
             $phaseCount = $source->asset?->phase_count ?? 1;
             foreach ($this->powerMeterParameters($phaseCount) as $index => [$key, $label, $unit]) {
-                $source->parameters()->create(compact('key', 'label', 'unit') + ['sort_order' => $index]);
+                $source->parameters()->create(compact('key', 'label', 'unit') + [
+                    'sort_order' => $index,
+                    'chart_group' => str_starts_with($key, 'voltage_') ? 'tegangan' : null,
+                ]);
             }
         }
 
@@ -111,6 +114,7 @@ class MonitoringConfigurationController extends Controller
             'unit' => ['nullable', 'string', 'max:24'],
             'alarm_min' => ['nullable', 'numeric'],
             'alarm_max' => $maxRules,
+            'chart_group' => ['nullable', 'string', 'max:60', 'regex:/^[a-z0-9_-]+$/'],
         ]);
         $data['alarm_enabled'] = $request->boolean('alarm_enabled');
         $source->parameters()->create($data);
@@ -131,6 +135,7 @@ class MonitoringConfigurationController extends Controller
             'unit' => ['nullable', 'string', 'max:24'],
             'alarm_min' => ['nullable', 'numeric'],
             'alarm_max' => $maxRules,
+            'chart_group' => ['nullable', 'string', 'max:60', 'regex:/^[a-z0-9_-]+$/'],
         ]);
         $data['alarm_enabled'] = $request->boolean('alarm_enabled');
         $parameter->update($data);
