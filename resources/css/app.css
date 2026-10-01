@@ -1,0 +1,39 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@keyframes realtime-value-updated {
+    0% {
+        opacity: 0.55;
+        filter: brightness(1.35);
+        text-shadow: 0 0 14px rgb(16 185 129 / 0.45);
+    }
+    45% {
+        opacity: 1;
+        filter: brightness(1.08);
+        text-shadow: 0 0 6px rgb(16 185 129 / 0.18);
+    }
+    100% {
+        opacity: 1;
+        filter: brightness(1);
+        text-shadow: none;
+    }
+}
+
+[data-realtime-field],
+[data-realtime-summary] {
+    transition: color 300ms ease, background-color 300ms ease, width 550ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.realtime-value-updated {
+    animation: realtime-value-updated 700ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    [data-realtime-field],
+    [data-realtime-summary],
+    .realtime-value-updated {
+        animation: none !important;
+        transition: none !important;
+    }
+}

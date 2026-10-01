@@ -1,0 +1,138 @@
+name: hydroflow
+
+x-app: &app
+  image: ${HYDROFLOW_REGISTRY:?Set HYDROFLOW_REGISTRY}/hydroflow-app:${HYDROFLOW_VERSION:?Set HYDROFLOW_VERSION}
+  pull_policy: ${HYDROFLOW_PULL_POLICY:-missing}
+  env_file:
+    - ${APP_ENV_FILE:-.env.docker}
+  restart: unless-stopped
+  volumes:
+    - app_storage:/var/www/html/storage
+    - ./certificates:/run/secrets/hydroflow:ro
+  depends_on:
+    mysql:
+      condition: service_healthy
+    mqtt:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+  networks: [hydroflow]
+
+services:
+  app:
+    <<: *app
+
+  nginx:
+    image: ${HYDROFLOW_REGISTRY:?Set HYDROFLOW_REGISTRY}/hydroflow-nginx:${HYDROFLOW_VERSION:?Set HYDROFLOW_VERSION}
+    pull_policy: ${HYDROFLOW_PULL_POLICY:-missing}
+    restart: unless-stopped
+    ports:
+      - "${APP_BIND_IP:-127.0.0.1}:${APP_PORT:-8080}:80"
+    volumes:
+      - app_storage:/var/www/html/storage:ro
+    depends_on:
+      app:
+        condition: service_started
+      reverb:
+        condition: service_healthy
+      mqtt:
+        condition: service_healthy
+    networks: [hydroflow]
+
+  queue:
+    <<: *app
+    command: php artisan queue:work --sleep=1 --tries=3 --timeout=90 --max-time=3600
+
+  telemetry-subscriber:
+    <<: *app
+    command: php artisan telemetry:subscribe
+
+  reverb:
+    <<: *app
+    command: php artisan reverb:start --host=0.0.0.0 --port=8080
+    expose: ["8080"]
+    healthcheck:
+      test: ["CMD-SHELL", "php -r 'exit(@fsockopen(\"127.0.0.1\", 8080) ? 0 : 1);'"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  scheduler:
+    <<: *app
+    command: php artisan schedule:work
+
+  mysql:
+    image: mysql:8.4
+    pull_policy: ${HYDROFLOW_PULL_POLICY:-missing}
+    restart: unless-stopped
+    env_file:
+      - ${APP_ENV_FILE:-.env.docker}
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u$${MYSQL_USER} -p$${MYSQL_PASSWORD} --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    networks: [hydroflow]
+
+  redis:
+    image: redis:7-alpine
+    pull_policy: ${HYDROFLOW_PULL_POLICY:-missing}
+    command: redis-server --appendonly yes
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks: [hydroflow]
+
+  mqtt:
+    image: ${HYDROFLOW_REGISTRY:?Set HYDROFLOW_REGISTRY}/hydroflow-mqtt:${HYDROFLOW_VERSION:?Set HYDROFLOW_VERSION}
+    pull_policy: ${HYDROFLOW_PULL_POLICY:-missing}
+    restart: unless-stopped
+    env_file:
+      - ${APP_ENV_FILE:-.env.docker}
+    ports:
+      - "${MQTT_BIND_IP:-0.0.0.0}:${MQTT_EXTERNAL_PORT:-1883}:1883"
+      - "${MQTT_BIND_IP:-127.0.0.1}:${MQTT_WEBSOCKET_PORT:-9001}:9001"
+    volumes:
+      - mqtt_data:/mosquitto/data
+      - mqtt_log:/mosquitto/log
+    healthcheck:
+      test: ["CMD-SHELL", "mosquitto_sub -h 127.0.0.1 -p 1883 -u \"$${MQTT_BROKER_USERNAME}\" -P \"$${MQTT_BROKER_PASSWORD}\" -t '$$SYS/broker/uptime' -C 1 -W 3 >/dev/null 2>&1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks: [hydroflow]
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    pull_policy: ${HYDROFLOW_PULL_POLICY:-missing}
+    restart: unless-stopped
+    profiles: [tunnel]
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on:
+      nginx:
+        condition: service_healthy
+    networks: [hydroflow]
+
+volumes:
+  mysql_data:
+  redis_data:
+  app_storage:
+  mqtt_data:
+  mqtt_log:
+
+networks:
+  hydroflow:
+    driver: bridge

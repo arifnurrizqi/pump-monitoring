@@ -1,0 +1,40 @@
+<?php
+
+namespace App\Providers;
+
+use App\Models\AlarmLog;
+use App\Models\TelemetryRaw;
+use App\Observers\TelemetryObserver;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\View;
+use Illuminate\Support\ServiceProvider;
+
+class AppServiceProvider extends ServiceProvider
+{
+    /**
+     * Register any application services.
+     */
+    public function register(): void
+    {
+        //
+    }
+
+    /**
+     * Bootstrap any application services.
+     */
+    public function boot(): void
+    {
+        TelemetryRaw::observe(TelemetryObserver::class);
+
+        View::composer('layouts.app', function ($view): void {
+            $activeAlarmCount = Auth::check()
+                ? AlarmLog::query()
+                    ->where('status', 'active')
+                    ->whereHas('device.users', fn ($query) => $query->whereKey(Auth::id()))
+                    ->count()
+                : 0;
+
+            $view->with('navigationActiveAlarmCount', $activeAlarmCount);
+        });
+    }
+}
